@@ -1,1 +1,57 @@
-{"built_at":"2026-10-26T13:06:22+00:00","fetched_at":"2026-10-26T12:58:05+00:00","scope":"v1","suburbs":["Brisbane City","Fortitude Valley","Newstead","Teneriffe","New Farm"],"council_data_edited":{"lines":"2026-10-19","signs":"2026-10-19","passenger_loading":"2024-08-26","commercial_loading":"2024-08-26","clearways":"2026-10-19","disability_parking":"2026-02-17"},"counts":{"red":2155,"green":195,"green_signs":219,"review":107,"clearways":186}}
+{
+ "built_at": "2026-10-26T13:37:06+00:00",
+ "fetched_at": "2026-10-26T13:22:14+00:00",
+ "scope": "v2",
+ "suburbs": [
+  "Brisbane City",
+  "Fortitude Valley",
+  "Newstead",
+  "Teneriffe",
+  "New Farm",
+  "Spring Hill",
+  "Herston"
+ ],
+ "council_data_edited": {
+  "lines": "2026-10-19",
+  "signs": "2026-10-19",
+  "passenger_loading": "2024-08-26",
+  "commercial_loading": "2024-08-26",
+  "clearways": "2026-10-19",
+  "disability_parking": "2026-02-17",
+  "roads": "2022-09-04"
+ },
+ "counts": {
+  "red": 3777,
+  "green": 391,
+  "review": 124,
+  "clearways": 218,
+  "points": 54,
+  "cameras": 56
+ },
+ "checks": {
+  "arrow_convention": {
+   "pairs_facing": 1799,
+   "pairs_apart": 182,
+   "agreement": 0.908
+  },
+  "signs_placed": 7470,
+  "signs_not_placed": 72,
+  "sign_zone_pieces": {
+   "red": 1107,
+   "green": 148,
+   "review": 5
+  },
+  "clearway_hours": {
+   "always": 67,
+   "timed": 151
+  },
+  "cameras_on_map": 7,
+  "cameras_street_not_found": [],
+  "features_hidden_by_corrections": 0,
+  "painted_lines_skipped": {
+   "parking bay or lane edge": 1586,
+   "removed from road": 173
+  }
+ },
+ "penalty_unit": "$172.70 from 1 July 2026"
+}

@@ -1,0 +1,4 @@
+{
+  "_comment": "Moderated fixes from driver reports. Only add an entry once it's checked (a photo of the sign, or two independent reports). action 'hide' removes map features within radius_m of the point (optionally only one layer: red, green, review, clearways). action 'note' puts an amber note pin on the map. Keep reporter names, number plates and fine numbers out of this file: it's public.",
+  "corrections": []
+}

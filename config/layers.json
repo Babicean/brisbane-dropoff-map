@@ -1,16 +1,11 @@
 {
-  "_comment": "Brisbane City Council ArcGIS feature layers. filter = 'suburb' uses suburb_field; filter = 'area' intersects the scope suburb polygons.",
+  "_comment": "Brisbane City Council ArcGIS feature layers. filter = 'suburb' uses suburb_field; filter = 'area' intersects the scope suburb polygons. See docs/decisions.md D005/D014 for layers deliberately not used.",
   "base_url": "https://services2.arcgis.com/dEKgZETqwmDAh1rP/ArcGIS/rest/services",
-  "boundaries": {
-    "service": "suburb_boundaries",
-    "name_field": "SUBURB_NAME"
-  },
+  "boundaries": {"service": "suburb_boundaries", "name_field": "SUBURB_NAME"},
   "layers": {
-    "lines":              { "service": "Parking_Line_locations",                     "filter": "suburb", "suburb_field": "SUBURB" },
-    "signs":              { "service": "Parking_Sign_locations",                     "filter": "suburb", "suburb_field": "SUBURB" },
-    "passenger_loading":  { "service": "parking_two_minute_passenger_loading_zones", "filter": "suburb", "suburb_field": "Suburb" },
-    "commercial_loading": { "service": "parking_commercial_vehicle_loading_zones",   "filter": "suburb", "suburb_field": "Suburb" },
-    "clearways":          { "service": "Parking_Clearways",                          "filter": "area" },
-    "disability_parking": { "service": "Disability_permit_parking",                  "filter": "area" }
+    "lines": {"service": "Parking_Line_locations", "filter": "suburb", "suburb_field": "SUBURB"},
+    "signs": {"service": "Parking_Sign_locations", "filter": "suburb", "suburb_field": "SUBURB"},
+    "clearways": {"service": "Parking_Clearways", "filter": "area"},
+    "roads": {"service": "BCC_SDRN_roads", "filter": "area"}
   }
 }

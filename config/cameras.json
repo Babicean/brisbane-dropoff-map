@@ -1,0 +1,22 @@
+{
+  "_comment": "Brisbane City Council fixed parking cameras. status: announced (council or news named the street; exact spot unknown), reported (a driver reported it, not yet checked), confirmed (position checked, e.g. photo of the camera or its 'parking enforcement camera in use' sign). Add lon/lat once a position is known. Entries outside the live scope are kept for later expansion.",
+  "cameras": [
+    {"id": "cam-mclachlan", "street": "MCLACHLAN STREET", "suburb": "FORTITUDE VALLEY", "status": "announced", "source": "Council media release, 2025 trial site", "lon": null, "lat": null},
+    {"id": "cam-wickham-st", "street": "WICKHAM STREET", "suburb": "FORTITUDE VALLEY", "status": "announced", "source": "Council media release, 2025 trial site", "lon": null, "lat": null},
+    {"id": "cam-symes", "street": "SYMES STREET", "suburb": "FORTITUDE VALLEY", "status": "announced", "source": "Council media release, 2025 trial site", "lon": null, "lat": null},
+    {"id": "cam-robertson", "street": "ROBERTSON STREET", "suburb": "FORTITUDE VALLEY", "status": "announced", "source": "Council media release, 2025", "lon": null, "lat": null},
+    {"id": "cam-festival-place", "street": "FESTIVAL PLACE", "suburb": "NEWSTEAD", "status": "announced", "source": "Council media release, 2025", "lon": null, "lat": null},
+    {"id": "cam-moray", "street": "MORAY STREET", "suburb": "NEW FARM", "status": "announced", "source": "Council media release, 2025", "lon": null, "lat": null},
+    {"id": "cam-charlotte", "street": "CHARLOTTE STREET", "suburb": "BRISBANE CITY", "status": "announced", "source": "Council media release, 2025", "lon": null, "lat": null},
+    {"id": "cam-glen-rd", "street": "GLEN ROAD", "suburb": "TOOWONG", "status": "announced", "source": "Council media release, 2025 trial site", "lon": null, "lat": null},
+    {"id": "cam-amy", "street": "AMY STREET", "suburb": "ALBION", "status": "announced", "source": "Council media release, 2025", "lon": null, "lat": null},
+    {"id": "cam-oxford", "street": "OXFORD STREET", "suburb": "BULIMBA", "status": "announced", "source": "Council media release, 2025", "lon": null, "lat": null},
+    {"id": "cam-hercules", "street": "HERCULES STREET", "suburb": "HAMILTON", "status": "announced", "source": "Council media release, 2025", "lon": null, "lat": null},
+    {"id": "cam-rotheram", "street": "ROTHERAM STREET", "suburb": "KANGAROO POINT", "status": "announced", "source": "Council media release, 2025", "lon": null, "lat": null},
+    {"id": "cam-mayer", "street": "MAYER STREET", "suburb": "MCDOWALL", "status": "announced", "source": "Council media release, 2025", "lon": null, "lat": null},
+    {"id": "cam-metro", "street": "METRO STREET", "suburb": "MCDOWALL", "status": "announced", "source": "Council media release, 2025", "lon": null, "lat": null},
+    {"id": "cam-russell", "street": "RUSSELL STREET", "suburb": "SOUTH BRISBANE", "status": "announced", "source": "Council media release, 2025", "lon": null, "lat": null},
+    {"id": "cam-graham", "street": "GRAHAM STREET", "suburb": "SOUTH BRISBANE", "status": "announced", "source": "ABC News, 7 Sep 2026 (one of the two busiest sites)", "lon": null, "lat": null},
+    {"id": "cam-park-rd", "street": "PARK ROAD", "suburb": "MILTON", "status": "announced", "source": "ABC News, 7 Sep 2026 (one of the two busiest sites)", "lon": null, "lat": null}
+  ]
+}

@@ -1,5 +1,6 @@
 {
-  "_comment": "Scope versions are cumulative: v2 = v1 suburbs + v2 suburbs. Names must match council data exactly (upper case).",
+  "_comment": "Scope versions are cumulative: v2 = v1 suburbs + v2 suburbs. Names must match council data exactly (upper case). 'live' is the version the published map is built from.",
+  "live": "v2",
   "versions": {
     "v1": ["BRISBANE CITY", "FORTITUDE VALLEY", "NEWSTEAD", "TENERIFFE", "NEW FARM"],
     "v2": ["SPRING HILL", "HERSTON"]

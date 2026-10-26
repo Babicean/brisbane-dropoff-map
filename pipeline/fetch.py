@@ -7,8 +7,8 @@ suburb boundaries and a manifest.json recording counts and source dates.
 Standard library only, so it runs on a fresh Python 3.11+ install.
 
 Usage:
-    python pipeline/fetch.py                     # v1 suburbs
-    python pipeline/fetch.py --scope v2          # v1 + v2 suburbs
+    python pipeline/fetch.py                     # the live scope from config/scope.json
+    python pipeline/fetch.py --scope v1          # just the v1 suburbs
     python pipeline/fetch.py --only lines signs  # just some layers
 """
 from __future__ import annotations
@@ -191,7 +191,8 @@ def main() -> int:
     layer_names = list(layers_cfg["layers"])
 
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
-    parser.add_argument("--scope", default="v1", help="scope version from config/scope.json (default v1)")
+    live = load_json(CONFIG_DIR / "scope.json").get("live", "v1")
+    parser.add_argument("--scope", default=live, help=f"scope version from config/scope.json (default: live scope, {live})")
     parser.add_argument("--only", nargs="+", choices=layer_names, help="fetch only these layers")
     parser.add_argument("--out", type=Path, default=DEFAULT_OUT, help="output folder (default data/raw)")
     args = parser.parse_args()
