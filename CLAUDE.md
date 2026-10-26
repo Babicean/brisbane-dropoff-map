@@ -28,7 +28,7 @@ Pushing `web/` changes to `main` deploys. The monthly refresh workflow does fetc
 - `config/scope.json` suburbs per version, `"live"` picks the published one. `config/layers.json` council layers. `config/cameras.json`, `config/corrections.json` moderated driver input.
 - `pipeline/rules.py` **every** red/green/review decision and fine amount. Don't scatter type checks elsewhere.
 - `pipeline/zones.py` signs → kerb zones (arrow convention, extents). `pipeline/hours.py` hours text → weekly schedules (`mask,start,end`, Monday = bit 0, minutes, Brisbane time). `pipeline/geo.py` local-metre geometry.
-- `web/index.html` the whole client (MapLibre 5.24.0 pinned, OpenFreeMap basemap, Photon search). `web/sw.js` network-first offline cache; bump `CACHE` if the shell changes.
+- `web/index.html` the whole client (MapLibre 5.24.0 pinned, OpenFreeMap basemap, Photon search). Two views: **simple** (default: bright green + one faint "don't stop" red, D037) and **detail** (all rule colours), switched by `applyMode()`. Keep the simple view calm: new information goes in popups or the detail view first. `web/sw.js` network-first offline cache; bump `CACHE` if the shell changes.
 
 ## Conventions
 

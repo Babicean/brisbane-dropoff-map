@@ -16,9 +16,10 @@
   :root {
     --red: #d7263d; --green: #12985a; --amber: #e39b0b; --clearway: #8e2bd6; --camera: #1f5fe0;
     --ink: #14171c; --muted: #5b6370; --panel: #ffffff; --panel-2: #f1f3f5; --line: #e3e6ea; --text: #1b1f24;
+    --go: #0a9a52; --nogo: #d6455a;
   }
   @media (prefers-color-scheme: dark) {
-    :root { --panel: #1d2127; --panel-2: #272c34; --line: #333943; --text: #e9ecef; --muted: #a3abb6; }
+    :root { --panel: #1d2127; --panel-2: #272c34; --line: #333943; --text: #e9ecef; --muted: #a3abb6; --go: #3fe08a; --nogo: #d0485a; }
   }
   * { box-sizing: border-box; }
   html, body { margin: 0; height: 100%; font: 15px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; color: var(--text); background: #0f1114; }
@@ -45,16 +46,24 @@
 
   .legend { position: fixed; left: 10px; bottom: calc(var(--nh, 34px) + 10px); z-index: 2;
             background: var(--panel); color: var(--text); border-radius: 12px; box-shadow: 0 4px 18px rgba(0,0,0,0.18);
-            padding: 8px 10px; font-size: 12.5px; max-width: 220px; border: 0; text-align: left; cursor: pointer; }
-  .legend .row { display: flex; align-items: center; gap: 8px; padding: 2px 0; }
-  .legend .head { font-weight: 650; display: flex; justify-content: space-between; gap: 12px; padding-bottom: 2px; }
+            padding: 8px 10px; font-size: 12.5px; max-width: 210px; }
+  .legend .head { all: unset; box-sizing: border-box; cursor: pointer; font-weight: 650; display: flex; justify-content: space-between; gap: 12px; width: 100%; padding-bottom: 3px; }
   .legend .head span { color: var(--muted); font-weight: 500; }
-  .legend.collapsed .row { display: none; }
+  .legend .row { display: flex; align-items: center; gap: 8px; padding: 2px 0; }
+  .legend .row.detail { display: none; }
+  .legend.detailed .row.detail { display: flex; }
+  .legend.detailed .row.simple-only { display: none; }
+  .legend.collapsed .rows { display: none; }
   .legend.collapsed .head { padding: 0; }
+  .legend .toggle { display: flex; gap: 6px; align-items: center; margin-top: 5px; padding-top: 6px; border-top: 1px solid var(--line); color: var(--muted); cursor: pointer; }
+  .legend .toggle input { margin: 0; }
   .swatch { width: 22px; height: 5px; border-radius: 3px; flex: none; }
+  .swatch.go { height: 6px; background: var(--go); box-shadow: 0 0 6px 1px var(--go); }
+  .swatch.nogo { height: 2.5px; background: var(--nogo); opacity: 0.75; }
   .swatch.dash { background: repeating-linear-gradient(90deg, var(--clearway) 0 6px, transparent 6px 10px) !important; }
   .swatch.off { background: repeating-linear-gradient(90deg, #8a919c 0 5px, transparent 5px 9px) !important; height: 3px; }
-  .swatch.cam { background: var(--camera); opacity: 0.45; height: 9px; }
+  .swatch.cam { width: 22px; height: 18px; display: grid; place-items: center; color: var(--camera); }
+  .swatch.cam svg { width: 15px; height: 15px; }
 
   .notice { position: fixed; left: 0; right: 0; bottom: 0; z-index: 3; padding: 7px 12px calc(7px + env(safe-area-inset-bottom));
             background: var(--ink); color: #fff; font-size: 12px; text-align: center; line-height: 1.35; }
@@ -130,15 +139,19 @@
 
 <button class="chip" id="time-chip" type="button" aria-haspopup="dialog"><span class="dot"></span><span id="time-label">Now</span></button>
 
-<button class="legend" id="legend" type="button" aria-expanded="true" aria-label="Map key, tap to hide or show">
-  <div class="head">Key <span id="legend-toggle">hide</span></div>
-  <div class="row"><span class="swatch" style="background:var(--red)"></span>Don't stop</div>
-  <div class="row"><span class="swatch" style="background:var(--green)"></span>2 min drop-off OK</div>
-  <div class="row"><span class="swatch dash"></span>Clearway in force</div>
-  <div class="row"><span class="swatch off"></span>Rule not in force now</div>
-  <div class="row"><span class="swatch" style="background:var(--amber)"></span>Unclear: check signs</div>
-  <div class="row"><span class="swatch cam"></span>Street with a camera</div>
-</button>
+<div class="legend" id="legend">
+  <button class="head" id="legend-head" type="button" aria-expanded="true" aria-controls="legend-rows">Key <span id="legend-toggle">hide</span></button>
+  <div class="rows" id="legend-rows">
+    <div class="row"><span class="swatch go"></span>Drop-off OK, 2 min</div>
+    <div class="row simple-only"><span class="swatch nogo"></span>Don't stop (tap for why)</div>
+    <div class="row detail"><span class="swatch" style="background:var(--red)"></span>No stopping</div>
+    <div class="row detail"><span class="swatch dash"></span>Clearway in force</div>
+    <div class="row detail"><span class="swatch" style="background:var(--amber)"></span>Unclear: check signs</div>
+    <div class="row detail"><span class="swatch off"></span>Not in force now</div>
+    <div class="row"><span class="swatch cam" id="legend-cam"></span>Parking camera</div>
+    <label class="toggle"><input type="checkbox" id="detail-toggle"> Show all rule types</label>
+  </div>
+</div>
 
 <div class="actions">
   <button class="fab secondary" id="report-btn" type="button">Report</button>
@@ -176,6 +189,7 @@
     <h2 id="find-title">Find a drop-off spot</h2>
     <input class="field" id="find-input" type="search" placeholder="Venue or address, e.g. The Tivoli" autocomplete="off" enterkeyhint="search">
     <ul class="results" id="find-suggestions"></ul>
+    <div class="row-btns"><button class="btn" id="find-near-me" type="button">Near me</button></div>
     <div class="hint" id="find-hint">…or tap the map where your passenger is going.</div>
     <ul class="results" id="find-results"></ul>
     <p class="small" id="find-note"></p>
@@ -250,6 +264,11 @@
   const DAY_NAMES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
   const WIDTH = ["interpolate", ["linear"], ["zoom"], 13, 1.5, 16, 4, 19, 9];
   const dark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+  // Simple view: green is the answer drivers want, so it's bright; every "don't stop"
+  // rule shares one quiet colour so a CBD full of no-stopping reads as background.
+  const P = dark
+    ? { go: "#3fe08a", glow: "#3fe08a", nogo: "#d0485a", dotStroke: "#0f1114" }
+    : { go: "#0a9a52", glow: "#25c46e", nogo: "#d6455a", dotStroke: "#ffffff" };
   const $ = (id) => document.getElementById(id);
 
   // ---------- Time ----------
@@ -309,8 +328,60 @@
       const src = map.getSource(name);
       if (src) src.setData(fc);
     }
+    map.getSource("green-dots")?.setData(greenDots());
     $("time-label").textContent = (chosen ? "Showing " : "Now · ") + `${DAY_NAMES[t.day]} ${fmtMinute(t.minute)}`;
     $("time-chip").classList.toggle("custom", !!chosen);
+  }
+
+  // Halfway along a line (by length), so a dot sits in the middle of a short stretch, not at its end.
+  function midpoint(line) {
+    const seg = [];
+    let total = 0;
+    for (let i = 0; i < line.length - 1; i++) {
+      const [ax, ay] = xy(line[i][0], line[i][1]), [bx, by] = xy(line[i + 1][0], line[i + 1][1]);
+      const d = Math.hypot(bx - ax, by - ay); seg.push(d); total += d;
+    }
+    let half = total / 2;
+    for (let i = 0; i < seg.length; i++) {
+      if (half <= seg[i] && seg[i] > 0) {
+        const t = half / seg[i];
+        return [line[i][0] + t * (line[i + 1][0] - line[i][0]), line[i][1] + t * (line[i + 1][1] - line[i][1])];
+      }
+      half -= seg[i];
+    }
+    return line[Math.floor(line.length / 2)];
+  }
+
+  function greenDots() {
+    const features = [];
+    for (const f of DATA.green?.features || []) {
+      if (f.properties.on === false) continue;
+      const g = f.geometry, line = g.type === "LineString" ? g.coordinates : g.coordinates[0];
+      features.push({ type: "Feature", geometry: { type: "Point", coordinates: midpoint(line) }, properties: f.properties });
+    }
+    return { type: "FeatureCollection", features };
+  }
+
+  // ---------- Simple / detail view ----------
+  const SIMPLE_LAYERS = ["nogo-review", "nogo-clearways", "nogo-red"];
+  const DETAIL_LAYERS = ["camera-streets", "clearways-off", "red-off", "review", "clearways", "red"];
+  let detail = false;
+  try { detail = localStorage.getItem("detailView") === "1"; } catch {}
+  function applyMode() {
+    const show = (ids, on) => ids.forEach(id => map.getLayer(id) && map.setLayoutProperty(id, "visibility", on ? "visible" : "none"));
+    show(SIMPLE_LAYERS, !detail);
+    show(DETAIL_LAYERS, detail);
+    if (map.getLayer("points")) map.setFilter("points", detail ? null : ["==", ["get", "layer"], "green"]);
+    if (map.getLayer("camera-streets")) map.setFilter("camera-streets", ["==", ["get", "kind"], "street"]);
+    $("legend").classList.toggle("detailed", detail);
+    $("detail-toggle").checked = detail;
+  }
+  // In the simple view, a camera's street is only shaded while its pin's popup is open.
+  function highlightCameraStreet(street) {
+    if (detail || !map.getLayer("camera-streets")) return null;
+    map.setFilter("camera-streets", ["all", ["==", ["get", "kind"], "street"], ["==", ["get", "street"], street]]);
+    map.setLayoutProperty("camera-streets", "visibility", "visible");
+    return () => { if (!detail) applyMode(); };
   }
 
   map.on("load", async () => {
@@ -329,22 +400,49 @@
     const isOn = ["!=", ["get", "on"], false], isOff = ["==", ["get", "on"], false];
     const thin = ["interpolate", ["linear"], ["zoom"], 13, 1, 17, 2.5];
 
+    const hidden = { ...lineLayout, visibility: "none" };
+    const nogoPaint = {
+      "line-color": P.nogo,
+      "line-width": ["interpolate", ["linear"], ["zoom"], 13, 0.8, 15, 1.4, 17, 2.6, 19, 5],
+      "line-opacity": ["interpolate", ["linear"], ["zoom"], 13, 0.3, 15, 0.5, 17, 0.75],
+    };
+
+    // Detail view: every rule type in its own colour (off until switched on).
     map.addLayer({ id: "camera-streets", type: "line", source: "cameras", filter: ["==", ["get", "kind"], "street"],
-      layout: { "line-cap": "butt", "line-join": "round" }, paint: { "line-color": C.camera, "line-opacity": 0.28, "line-width": ["interpolate", ["linear"], ["zoom"], 13, 8, 17, 26] } });
-    map.addLayer({ id: "clearways-off", type: "line", source: "clearways", filter: isOff, layout: lineLayout,
+      layout: { "line-cap": "butt", "line-join": "round", visibility: "none" }, paint: { "line-color": C.camera, "line-opacity": 0.28, "line-width": ["interpolate", ["linear"], ["zoom"], 13, 8, 17, 26] } });
+    map.addLayer({ id: "clearways-off", type: "line", source: "clearways", filter: isOff, layout: hidden,
       paint: { "line-color": C.off, "line-width": thin, "line-dasharray": [2, 2], "line-opacity": 0.8 } });
-    map.addLayer({ id: "red-off", type: "line", source: "red", filter: isOff, layout: lineLayout,
+    map.addLayer({ id: "red-off", type: "line", source: "red", filter: isOff, layout: hidden,
       paint: { "line-color": C.off, "line-width": thin, "line-dasharray": [2, 2], "line-opacity": 0.8 } });
-    map.addLayer({ id: "review", type: "line", source: "review", layout: lineLayout, paint: { "line-color": C.amber, "line-width": WIDTH } });
-    map.addLayer({ id: "green", type: "line", source: "green", filter: isOn, layout: lineLayout, paint: { "line-color": C.green, "line-width": WIDTH } });
-    map.addLayer({ id: "clearways", type: "line", source: "clearways", filter: isOn, layout: lineLayout,
+    map.addLayer({ id: "review", type: "line", source: "review", layout: hidden, paint: { "line-color": C.amber, "line-width": WIDTH } });
+    map.addLayer({ id: "clearways", type: "line", source: "clearways", filter: isOn, layout: hidden,
       paint: { "line-color": C.clearway, "line-width": WIDTH, "line-dasharray": [2, 1.5] } });
-    map.addLayer({ id: "red", type: "line", source: "red", filter: isOn, layout: lineLayout, paint: { "line-color": C.red, "line-width": WIDTH } });
+    map.addLayer({ id: "red", type: "line", source: "red", filter: isOn, layout: hidden, paint: { "line-color": C.red, "line-width": WIDTH, "line-opacity": 0.9 } });
+
+    // Simple view: anything you can't stop on (red, clearways in force, unclear) in one quiet colour.
+    map.addLayer({ id: "nogo-review", type: "line", source: "review", layout: lineLayout, paint: nogoPaint });
+    map.addLayer({ id: "nogo-clearways", type: "line", source: "clearways", filter: isOn, layout: lineLayout, paint: nogoPaint });
+    map.addLayer({ id: "nogo-red", type: "line", source: "red", filter: isOn, layout: lineLayout, paint: nogoPaint });
+
+    // Green on top in both views, with a soft glow so it reads at a glance.
+    map.addLayer({ id: "green-glow", type: "line", source: "green", filter: isOn, layout: lineLayout,
+      paint: { "line-color": P.glow, "line-blur": 6, "line-opacity": dark ? 0.35 : 0.3,
+               "line-width": ["interpolate", ["linear"], ["zoom"], 13, 8, 15, 12, 17, 20, 19, 30] } });
+    map.addLayer({ id: "green", type: "line", source: "green", filter: isOn, layout: lineLayout,
+      paint: { "line-color": P.go, "line-width": ["interpolate", ["linear"], ["zoom"], 13, 2.5, 15, 4.5, 17, 7, 19, 12] } });
+    // Zoomed out, short green stretches are tiny: show each as a dot that fades as you zoom in.
+    map.addSource("green-dots", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+    map.addLayer({ id: "green-dots", type: "circle", source: "green-dots",
+      paint: { "circle-color": P.go, "circle-radius": ["interpolate", ["linear"], ["zoom"], 12, 3.5, 14.5, 5.5],
+               "circle-stroke-color": P.dotStroke, "circle-stroke-width": 1.5,
+               "circle-opacity": ["interpolate", ["linear"], ["zoom"], 14.5, 1, 15.2, 0],
+               "circle-stroke-opacity": ["interpolate", ["linear"], ["zoom"], 14.5, 1, 15.2, 0] } });
     map.addLayer({ id: "points", type: "circle", source: "points",
-      paint: { "circle-color": ["match", ["get", "layer"], "red", C.red, "green", C.green, C.amber],
-               "circle-radius": ["interpolate", ["linear"], ["zoom"], 13, 3, 17, 6], "circle-stroke-color": "#fff", "circle-stroke-width": 1.5 } });
+      paint: { "circle-color": ["match", ["get", "layer"], "red", C.red, "green", P.go, C.amber],
+               "circle-radius": ["interpolate", ["linear"], ["zoom"], 13, 3, 17, 6], "circle-stroke-color": P.dotStroke, "circle-stroke-width": 1.5 } });
 
     addCameraPins();
+    applyMode();
     applyTime();
     setInterval(() => { if (!chosen) applyTime(); }, 60 * 1000);
     document.querySelector(".maplibregl-ctrl-attrib")?.classList.remove("maplibregl-compact-show");
@@ -362,13 +460,20 @@
       el.innerHTML = CAM_SVG;
       el.setAttribute("role", "button");
       el.setAttribute("aria-label", `${p.label}, ${p.street}`);
-      el.addEventListener("click", (e) => { e.stopPropagation(); showPopup(f.geometry.coordinates, p, "camera"); });
+      el.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const undo = highlightCameraStreet(p.street);
+        const pop = showPopup(f.geometry.coordinates, p, "camera");
+        if (undo) pop.on("close", undo);
+      });
       new maplibregl.Marker({ element: el }).setLngLat(f.geometry.coordinates).addTo(map);
     }
   }
 
   // ---------- Popups ----------
-  const INTERACTIVE = ["red", "red-off", "green", "clearways", "clearways-off", "review", "points", "camera-streets"];
+  const INTERACTIVE = ["red", "red-off", "green", "green-dots", "clearways", "clearways-off", "review", "points", "camera-streets",
+                       "nogo-red", "nogo-clearways", "nogo-review"];
+  const kindOf = (id) => id === "camera-streets" ? "camera" : id === "green-dots" ? "green" : id.replace("nogo-", "").replace("-off", "");
   function showPopup(lngLat, p, kind) {
     const el = document.createElement("div");
     const add = (cls, text) => { if (!text) return null; const d = document.createElement("div"); d.className = cls; d.textContent = text; el.appendChild(d); return d; };
@@ -394,7 +499,7 @@
       add("pop-line", p.arrow ? "Sign arrow: " + p.arrow : "");
       add("pop-line small", p.src === "sign" ? "From council's sign records" : p.src === "paint" ? "From council's painted line records" : "");
     }
-    new maplibregl.Popup({ closeButton: true, maxWidth: "280px" }).setLngLat(lngLat).setDOMContent(el).addTo(map);
+    return new maplibregl.Popup({ closeButton: true, maxWidth: "280px" }).setLngLat(lngLat).setDOMContent(el).addTo(map);
   }
 
   let mapTapMode = null; // "find" while the finder is open
@@ -405,11 +510,15 @@
     const layers = INTERACTIVE.filter(id => map.getLayer(id));
     const hits = map.queryRenderedFeatures([[e.point.x - r, e.point.y - r], [e.point.x + r, e.point.y + r]], { layers });
     if (!hits.length) return;
-    const order = ["red", "clearways", "green", "review", "points", "red-off", "clearways-off", "camera-streets"];
-    hits.sort((a, b) => order.indexOf(a.layer.id) - order.indexOf(b.layer.id));
-    const h = hits[0];
-    const kind = h.layer.id === "camera-streets" ? "camera" : h.layer.id.replace("-off", "");
-    showPopup(e.lngLat, h.properties, kind);
+    // The closest line wins, so tapping a green spot beside a red kerb shows the green.
+    // Ties go to the stricter rule.
+    const order = ["red", "nogo-red", "clearways", "nogo-clearways", "green", "green-dots", "review", "nogo-review",
+                   "points", "red-off", "clearways-off", "camera-streets"];
+    const [px, py] = xy(e.lngLat.lng, e.lngLat.lat);
+    const scored = hits.map(h => [Math.round(distToFeature(px, py, h)[0] * 2), order.indexOf(h.layer.id), h]);
+    scored.sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+    const h = scored[0][2];
+    showPopup(e.lngLat, h.properties, kindOf(h.layer.id));
   });
   map.on("mousemove", (e) => {
     const r = 6, layers = INTERACTIVE.filter(id => map.getLayer(id));
@@ -624,17 +733,31 @@
   $("time-now").addEventListener("click", () => { chosen = null; applyTime(); closeSheets(); });
 
   const legend = $("legend");
+  $("legend-cam").innerHTML = CAM_SVG;
   function setLegend(collapsed) {
     legend.classList.toggle("collapsed", collapsed);
-    legend.setAttribute("aria-expanded", String(!collapsed));
+    $("legend-head").setAttribute("aria-expanded", String(!collapsed));
     $("legend-toggle").textContent = collapsed ? "show" : "hide";
   }
-  legend.addEventListener("click", () => {
+  $("legend-head").addEventListener("click", () => {
     const collapsed = !legend.classList.contains("collapsed");
     setLegend(collapsed);
     try { localStorage.setItem("legendCollapsed", collapsed ? "1" : "0"); } catch {}
   });
   try { if (localStorage.getItem("legendCollapsed") === "1") setLegend(true); } catch {}
+  $("detail-toggle").addEventListener("change", (e) => {
+    detail = e.target.checked;
+    try { localStorage.setItem("detailView", detail ? "1" : "0"); } catch {}
+    applyMode();
+  });
+
+  $("find-near-me").addEventListener("click", () => {
+    if (!navigator.geolocation) { toast("Location isn't available on this device."); return; }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => setDestination([pos.coords.longitude, pos.coords.latitude], "your location"),
+      () => toast("Couldn't get your location. Search or tap the map instead."),
+      { enableHighAccuracy: true, timeout: 10000 });
+  });
 
   // Keep the buttons and key above the bottom notice, however many lines it wraps to.
   const notice = $("notice");
@@ -659,7 +782,8 @@
   if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
 
   // Exposed for automated checks only.
-  window.__dropoff = { map, DATA, setDestination, reportText, applyTime, setChosen: (t) => { chosen = t; applyTime(); } };
+  window.__dropoff = { map, DATA, setDestination, reportText, applyTime, setChosen: (t) => { chosen = t; applyTime(); },
+                       setDetail: (on) => { detail = on; applyMode(); } };
 })();
 </script>
 </body>

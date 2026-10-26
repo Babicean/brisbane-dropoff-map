@@ -179,3 +179,20 @@ A separate review checked every rule against the Queensland Road Rules Regulatio
 ### D036 · Not changed (yet)
 - **Public holidays** (s318: day-specific panels may not apply): noted in the time picker and Info sheet; no holiday calendar yet.
 - **Motorcycle parking** may allow passenger drop-off (s202). Left undrawn until checked; it would only add green.
+
+---
+
+## Readability · 27 Oct 2026
+
+### D037 · Simple view by default: show where you CAN stop
+- **Problem (Brendon):** at a glance the map was a wall of red and confusing for most drivers.
+- **Why it happened:** in the inner city almost every kerb is no-stopping, so drawing every rule at full strength buries the exceptions, and the exceptions (green) are what a driver is looking for. Six colours at once (red, green, purple, grey, amber, blue) made it worse.
+- **Decided:** the default "simple" view answers one question, "where can I stop right now?":
+  - green is bright and thick with a soft glow; zoomed out, each green stretch also shows as a dot (dots fade out between zoom 14.5 and 15.2);
+  - every "don't stop" rule in force (red, clearways in force, unclear/amber) is drawn in one quiet, thin, semi-transparent red that strengthens as you zoom in (opacity 0.3 → 0.75);
+  - rules not in force right now aren't drawn; camera streets are only shaded while their pin's popup is open;
+  - tapping any line still shows the exact rule, hours and fine.
+- **Detail view:** a "Show all rule types" switch in the key brings back the full colour coding (strong red, purple clearways, amber unclear, grey not-in-force, blue camera streets). The choice is remembered on that phone.
+- **Treating amber as "don't stop" in the simple view** is deliberate: unclear means don't rely on it, and wrong red is the lesser error.
+- **Also:** tapping now picks the line nearest your finger (ties go to the stricter rule), and the finder has a "Near me" button.
+- **Change:** palette `P` and `applyMode()` in `web/index.html`.

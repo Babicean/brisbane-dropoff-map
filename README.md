@@ -17,18 +17,19 @@ So the useful question isn't "is there a camera here?" It's "is this bit of kerb
 
 ## What the map does
 
+The default **simple view** answers one question: where can I stop right now?
+
 | Feature | What drivers see |
 |---|---|
-| **Red** | Don't stop: yellow lines, No Stopping signs, bus and taxi zones, mail zones, accessible bays, commercial-only loading zones, works zones |
-| **Green** | A 2-minute passenger drop-off is legal: loading zones that allow passengers, passenger loading zones, No Parking zones |
-| **Purple dashed** | Clearways in force |
-| **Grey dashed** | A timed rule that isn't in force at the selected time |
-| **Amber** | The data doesn't say clearly: check the signs |
-| **Blue shading + camera pin** | A street with a council parking camera |
+| **Bright green** (dots when zoomed out) | A 2-minute passenger drop-off is legal now: loading zones that allow passengers, passenger loading zones, No Parking zones |
+| **Faint red** | Don't stop: every rule in force (no stopping, yellow lines, bus/taxi/mail zones, accessible bays, commercial-only loading zones, clearways in force, and anything unclear). Gets stronger as you zoom in |
+| **Camera pin** | A street with a council parking camera; tap it to shade the street |
 | **Time chip** | Shows rules for now (Brisbane time); tap to check another day and time |
-| **Find a drop-off spot** | Search a venue or tap the map: the 3 nearest legal drop-off spots in force, with rough walking distance |
+| **Find a drop-off spot** | Search a venue, tap the map or use "Near me": the 3 nearest legal drop-off spots in force, with rough walking distance |
 | **Report** | Writes a message (camera, fine, wrong map, good spot) with the location for the drivers group |
 | **Tap any line** | Rule, street, hours, whether it's in force, fine amount, and whether it came from paint or signs |
+
+**Show all rule types** (switch in the key) brings back the full colour coding: strong red, purple dashed clearways, amber "unclear: check the signs", grey dashes for timed rules not in force, and blue shading on camera streets.
 
 Also: follows the phone's dark mode, can be added to the home screen, and keeps working with the last-loaded data when there's no signal.
 

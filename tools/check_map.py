@@ -65,7 +65,7 @@ async def main():
             return null; }""")
         await pg.wait_for_timeout(1500)
         pt = await pg.evaluate("""() => { const m = window.__dropoff.map;
-            const f = m.queryRenderedFeatures({layers:['red']}).find(f => f.properties.src === 'sign');
+            const f = m.queryRenderedFeatures({layers:['red','nogo-red'].filter(id => m.getLayer(id) && m.getLayoutProperty(id,'visibility') !== 'none')}).find(f => f.properties.src === 'sign');
             if (!f) return null; const c = f.geometry.coordinates[Math.floor(f.geometry.coordinates.length/2)];
             const p = m.project(c); return [p.x, p.y]; }""")
         if pt:
