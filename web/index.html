@@ -4,244 +4,650 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Brisbane Drop-off Map</title>
-<meta name="description" content="Where rideshare drivers can and can't stop for drop-offs in inner Brisbane. Built from Brisbane City Council open data.">
+<meta name="description" content="Where rideshare drivers can and can't stop for drop-offs in inner Brisbane, right now. Built from Brisbane City Council open data.">
 <meta name="theme-color" content="#14171c">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Drop-off Map">
 <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.css">
 <style>
   :root {
-    --red: #d7263d;
-    --green: #12985a;
-    --amber: #e39b0b;
-    --clearway: #8e2bd6;
-    --ink: #14171c;
-    --muted: #5b6370;
-    --panel: #ffffff;
-    --line: #e3e6ea;
+    --red: #d7263d; --green: #12985a; --amber: #e39b0b; --clearway: #8e2bd6; --camera: #1f5fe0;
+    --ink: #14171c; --muted: #5b6370; --panel: #ffffff; --panel-2: #f1f3f5; --line: #e3e6ea; --text: #1b1f24;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --panel: #1d2127; --panel-2: #272c34; --line: #333943; --text: #e9ecef; --muted: #a3abb6; }
   }
   * { box-sizing: border-box; }
-  html, body { margin: 0; height: 100%; font: 15px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; color: var(--ink); background: #f4f5f7; }
+  html, body { margin: 0; height: 100%; font: 15px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; color: var(--text); background: #0f1114; }
   #map { position: fixed; inset: 0; }
+  button { font: inherit; color: inherit; }
 
-  .bar {
-    position: fixed; top: 0; left: 0; right: 0; z-index: 2;
-    display: flex; align-items: center; gap: 10px;
-    padding: calc(10px + env(safe-area-inset-top)) 12px 10px;
-    background: var(--ink); color: #fff;
-  }
-  .bar h1 { font-size: 16px; margin: 0; font-weight: 650; letter-spacing: -0.01em; }
-  .bar .tag { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; background: var(--amber); color: var(--ink); padding: 2px 6px; border-radius: 4px; }
-  .bar button { margin-left: auto; background: transparent; color: #fff; border: 1px solid rgba(255,255,255,0.35); border-radius: 8px; padding: 6px 12px; font: inherit; font-size: 14px; cursor: pointer; }
+  .bar { position: fixed; top: 0; left: 0; right: 0; z-index: 3; display: flex; align-items: center; gap: 8px;
+         padding: calc(8px + env(safe-area-inset-top)) 10px 8px; background: var(--ink); color: #fff; }
+  .bar h1 { font-size: 15px; margin: 0; font-weight: 650; letter-spacing: -0.01em; white-space: nowrap; }
+  .bar .tag { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; background: var(--amber); color: var(--ink); padding: 2px 5px; border-radius: 4px; }
+  .bar .spacer { flex: 1; }
+  .bar button { background: transparent; color: #fff; border: 1px solid rgba(255,255,255,0.3); border-radius: 8px; padding: 6px 10px; font-size: 13.5px; cursor: pointer; }
 
-  .legend {
-    position: fixed; left: 10px; bottom: calc(42px + env(safe-area-inset-bottom)); z-index: 2;
-    background: var(--panel); border-radius: 12px; box-shadow: 0 4px 18px rgba(0,0,0,0.16);
-    padding: 8px 10px; font-size: 12.5px; max-width: 230px; border: 0; text-align: left; font-family: inherit; color: inherit; cursor: pointer;
-  }
+  .chip { position: fixed; z-index: 3; top: calc(52px + env(safe-area-inset-top)); left: 10px;
+          background: var(--panel); color: var(--text); border: 0; border-radius: 999px; padding: 7px 12px; font-size: 13.5px; font-weight: 600;
+          box-shadow: 0 3px 12px rgba(0,0,0,0.18); cursor: pointer; display: flex; gap: 6px; align-items: center; }
+  .chip .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); }
+  .chip.custom .dot { background: var(--amber); }
+
+  .actions { position: fixed; z-index: 3; right: 10px; bottom: calc(var(--nh, 34px) + 10px); display: flex; flex-direction: column; gap: 8px; align-items: flex-end; }
+  .fab { border: 0; border-radius: 999px; padding: 11px 16px; font-weight: 650; font-size: 14px; box-shadow: 0 4px 14px rgba(0,0,0,0.25); cursor: pointer; }
+  .fab.primary { background: var(--green); color: #fff; }
+  .fab.secondary { background: var(--panel); color: var(--text); }
+
+  .legend { position: fixed; left: 10px; bottom: calc(var(--nh, 34px) + 10px); z-index: 2;
+            background: var(--panel); color: var(--text); border-radius: 12px; box-shadow: 0 4px 18px rgba(0,0,0,0.18);
+            padding: 8px 10px; font-size: 12.5px; max-width: 220px; border: 0; text-align: left; cursor: pointer; }
   .legend .row { display: flex; align-items: center; gap: 8px; padding: 2px 0; }
   .legend .head { font-weight: 650; display: flex; justify-content: space-between; gap: 12px; padding-bottom: 2px; }
   .legend .head span { color: var(--muted); font-weight: 500; }
   .legend.collapsed .row { display: none; }
   .legend.collapsed .head { padding: 0; }
   .swatch { width: 22px; height: 5px; border-radius: 3px; flex: none; }
-  .swatch.dot { width: 12px; height: 12px; border-radius: 50%; margin: 0 5px; border: 2px solid #fff; box-shadow: 0 0 0 1px var(--green); }
-  .swatch.dash { background: repeating-linear-gradient(90deg, var(--clearway) 0 6px, transparent 6px 10px); }
+  .swatch.dash { background: repeating-linear-gradient(90deg, var(--clearway) 0 6px, transparent 6px 10px) !important; }
+  .swatch.off { background: repeating-linear-gradient(90deg, #8a919c 0 5px, transparent 5px 9px) !important; height: 3px; }
+  .swatch.cam { background: var(--camera); opacity: 0.45; height: 9px; }
 
-  .notice {
-    position: fixed; left: 0; right: 0; bottom: 0; z-index: 2;
-    padding: 8px 12px calc(8px + env(safe-area-inset-bottom));
-    background: var(--ink); color: #fff; font-size: 12.5px; text-align: center;
-  }
+  .notice { position: fixed; left: 0; right: 0; bottom: 0; z-index: 3; padding: 7px 12px calc(7px + env(safe-area-inset-bottom));
+            background: var(--ink); color: #fff; font-size: 12px; text-align: center; line-height: 1.35; }
 
-  .sheet {
-    position: fixed; inset: 0; z-index: 5; display: none;
-    background: rgba(20,23,28,0.45);
-  }
+  .sheet { position: fixed; inset: 0; z-index: 6; display: none; background: rgba(10,12,15,0.45); }
   .sheet.open { display: block; }
-  .sheet .card {
-    position: absolute; left: 0; right: 0; bottom: 0; max-height: 85vh; overflow: auto;
-    background: var(--panel); border-radius: 16px 16px 0 0;
-    padding: 18px 18px calc(24px + env(safe-area-inset-bottom));
-  }
-  @media (min-width: 720px) {
-    .sheet .card { left: auto; right: 16px; top: 70px; bottom: auto; width: 400px; border-radius: 16px; }
-  }
+  .sheet.passthrough { background: transparent; pointer-events: none; }
+  .sheet.passthrough .card { pointer-events: auto; }
+  .card { position: absolute; left: 0; right: 0; bottom: 0; max-height: 82vh; overflow: auto; background: var(--panel); color: var(--text);
+          border-radius: 16px 16px 0 0; padding: 16px 16px calc(20px + env(safe-area-inset-bottom)); box-shadow: 0 -6px 24px rgba(0,0,0,0.2); }
+  .passthrough .card { max-height: 48vh; }
+  @media (min-width: 720px) { .card, .passthrough .card { left: auto; right: 16px; top: 64px; bottom: auto; width: 400px; border-radius: 16px; max-height: calc(100vh - 90px); } }
   .card h2 { font-size: 18px; margin: 0 0 6px; }
-  .card h3 { font-size: 14px; margin: 18px 0 6px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); }
-  .card p, .card li { color: #2b3038; }
+  .card h3 { font-size: 12.5px; margin: 16px 0 6px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); }
   .card ul { padding-left: 18px; margin: 6px 0; }
-  .card .close { float: right; border: 0; background: #eef0f3; border-radius: 8px; padding: 6px 12px; font: inherit; cursor: pointer; }
+  .card li { margin: 3px 0; }
+  .close { float: right; border: 0; background: var(--panel-2); border-radius: 8px; padding: 6px 12px; cursor: pointer; }
   .small { font-size: 12.5px; color: var(--muted); }
+  .field { display: block; width: 100%; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--panel-2); color: var(--text); font: inherit; margin: 6px 0; }
+  .btn { border: 0; border-radius: 10px; padding: 10px 14px; font-weight: 650; cursor: pointer; background: var(--panel-2); color: var(--text); }
+  .btn.go { background: var(--green); color: #fff; }
+  .row-btns { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+  .results { list-style: none; padding: 0 !important; margin: 8px 0 0 !important; }
+  .results li { margin: 0 !important; }
+  .results button { width: 100%; text-align: left; border: 0; background: var(--panel-2); border-radius: 10px; padding: 10px 12px; margin-top: 6px; cursor: pointer; }
+  .results .dist { float: right; font-weight: 650; }
+  .results .sub { display: block; font-size: 12.5px; color: var(--muted); }
+  .pick { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 6px; }
+  .pick label { display: flex; gap: 8px; align-items: center; background: var(--panel-2); border-radius: 10px; padding: 10px; cursor: pointer; font-size: 14px; }
+  .hint { background: var(--panel-2); border-radius: 10px; padding: 10px 12px; font-size: 13.5px; margin-top: 8px; }
 
-  .maplibregl-popup-content { border-radius: 10px; padding: 10px 12px; font-size: 14px; max-width: 260px; }
-  .pop-label { font-weight: 650; }
+  .maplibregl-popup-content { border-radius: 10px; padding: 10px 12px; font-size: 14px; max-width: 270px; background: var(--panel); color: var(--text); }
+  .maplibregl-popup-anchor-bottom .maplibregl-popup-tip, .maplibregl-popup-anchor-bottom-left .maplibregl-popup-tip, .maplibregl-popup-anchor-bottom-right .maplibregl-popup-tip { border-top-color: var(--panel); }
+  .maplibregl-popup-anchor-top .maplibregl-popup-tip, .maplibregl-popup-anchor-top-left .maplibregl-popup-tip, .maplibregl-popup-anchor-top-right .maplibregl-popup-tip { border-bottom-color: var(--panel); }
+  .maplibregl-popup-close-button { color: var(--muted); font-size: 18px; padding: 0 6px; }
+  .pop-label { font-weight: 650; padding-right: 14px; }
   .pop-street { color: var(--muted); }
-  .pop-hours { margin-top: 4px; font-size: 13px; }
+  .pop-line { margin-top: 4px; font-size: 13px; }
+  .pop-state { margin-top: 6px; font-size: 12.5px; font-weight: 650; }
+  .pop-state.on { color: var(--red); }
+  .pop-state.go { color: var(--green); }
+  .pop-state.off { color: var(--muted); }
   .maplibregl-ctrl-top-right { top: calc(52px + env(safe-area-inset-top)); }
-  .maplibregl-ctrl-bottom-right, .maplibregl-ctrl-bottom-left { bottom: calc(34px + env(safe-area-inset-bottom)); }
+  .maplibregl-ctrl-bottom-right, .maplibregl-ctrl-bottom-left { bottom: var(--nh, 34px); }
+
+  .cam-pin { width: 30px; height: 30px; border-radius: 50%; background: var(--camera); border: 2px solid #fff; box-shadow: 0 2px 8px rgba(0,0,0,0.35);
+             display: grid; place-items: center; cursor: pointer; color: #fff; }
+  .cam-pin.unconfirmed { background: #fff; border-color: var(--camera); color: var(--camera); }
+  .cam-pin svg { width: 16px; height: 16px; }
+  .dest-pin { width: 18px; height: 18px; border-radius: 50%; background: var(--ink); border: 3px solid #fff; box-shadow: 0 0 0 2px var(--ink), 0 3px 10px rgba(0,0,0,0.4); }
+  .spot-pin { min-width: 26px; height: 26px; border-radius: 13px; background: var(--green); color: #fff; font-weight: 750; font-size: 13px;
+              border: 2px solid #fff; display: grid; place-items: center; box-shadow: 0 2px 8px rgba(0,0,0,0.35); cursor: pointer; }
+  .crosshair { position: fixed; left: 50%; top: 50%; width: 26px; height: 26px; margin: -13px 0 0 -13px; z-index: 4; pointer-events: none; display: none; }
+  .crosshair.on { display: block; }
+  .crosshair::before, .crosshair::after { content: ""; position: absolute; background: var(--red); }
+  .crosshair::before { left: 12px; top: 0; width: 2px; height: 26px; }
+  .crosshair::after { top: 12px; left: 0; height: 2px; width: 26px; }
+  .toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(var(--nh, 34px) + 70px); z-index: 7;
+           background: var(--ink); color: #fff; padding: 10px 14px; border-radius: 10px; font-size: 14px; display: none; max-width: 90vw; }
+  .toast.show { display: block; }
 </style>
 </head>
 <body>
 <div id="map" role="region" aria-label="Map of stopping restrictions"></div>
+<div class="crosshair" id="crosshair" aria-hidden="true"></div>
 
 <header class="bar">
   <h1>Brisbane Drop-off Map</h1>
-  <span class="tag">Preview</span>
+  <span class="tag">Beta</span>
+  <span class="spacer"></span>
   <button id="info-btn" type="button" aria-haspopup="dialog">Info</button>
 </header>
+
+<button class="chip" id="time-chip" type="button" aria-haspopup="dialog"><span class="dot"></span><span id="time-label">Now</span></button>
 
 <button class="legend" id="legend" type="button" aria-expanded="true" aria-label="Map key, tap to hide or show">
   <div class="head">Key <span id="legend-toggle">hide</span></div>
   <div class="row"><span class="swatch" style="background:var(--red)"></span>Don't stop</div>
-  <div class="row"><span class="swatch" style="background:var(--green)"></span>Loading zone: 2 min drop-off</div>
-  <div class="row"><span class="swatch dot" style="background:var(--green)"></span>Loading zone sign, no paint</div>
-  <div class="row"><span class="swatch dash"></span>Clearway: check its hours</div>
-  <div class="row"><span class="swatch" style="background:var(--amber)"></span>Unclear: check the signs</div>
+  <div class="row"><span class="swatch" style="background:var(--green)"></span>2 min drop-off OK</div>
+  <div class="row"><span class="swatch dash"></span>Clearway in force</div>
+  <div class="row"><span class="swatch off"></span>Rule not in force now</div>
+  <div class="row"><span class="swatch" style="background:var(--amber)"></span>Unclear: check signs</div>
+  <div class="row"><span class="swatch cam"></span>Street with a camera</div>
 </button>
 
-<div class="notice">No red line doesn't mean you can stop. Signs on the street always override this map.</div>
+<div class="actions">
+  <button class="fab secondary" id="report-btn" type="button">Report</button>
+  <button class="fab primary" id="find-btn" type="button">Find a drop-off spot</button>
+</div>
 
-<div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-title">
+<div class="notice" id="notice">Signs always override this map. No stopping within 10 m of a corner, 20 m at lights.</div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<!-- Time picker -->
+<div class="sheet" id="time-sheet" role="dialog" aria-modal="true" aria-labelledby="time-title">
   <div class="card">
-    <button class="close" id="close-btn" type="button">Close</button>
-    <h2 id="sheet-title">About this map</h2>
-    <p>Where rideshare drivers can and can't stop to drop off a passenger in inner Brisbane. Built from Brisbane City Council's open parking data. Tap any line for details.</p>
+    <button class="close" data-close type="button">Close</button>
+    <h2 id="time-title">Show rules for…</h2>
+    <p class="small">Timed rules (clearways, peak-hour no stopping, loading zone hours) change through the day. Pick when you'll be there.</p>
+    <label class="small" for="day-select">Day</label>
+    <select class="field" id="day-select">
+      <option value="0">Monday</option><option value="1">Tuesday</option><option value="2">Wednesday</option>
+      <option value="3">Thursday</option><option value="4">Friday</option><option value="5">Saturday</option><option value="6">Sunday</option>
+    </select>
+    <label class="small" for="time-input">Time</label>
+    <input class="field" id="time-input" type="time" step="300">
+    <div class="row-btns">
+      <button class="btn go" id="time-apply" type="button">Show this time</button>
+      <button class="btn" id="time-now" type="button">Back to now</button>
+    </div>
+    <p class="small">Public holidays aren't accounted for: check the sign.</p>
+  </div>
+</div>
+
+<!-- Finder -->
+<div class="sheet passthrough" id="find-sheet" role="dialog" aria-labelledby="find-title">
+  <div class="card">
+    <button class="close" data-close type="button">Close</button>
+    <h2 id="find-title">Find a drop-off spot</h2>
+    <input class="field" id="find-input" type="search" placeholder="Venue or address, e.g. The Tivoli" autocomplete="off" enterkeyhint="search">
+    <ul class="results" id="find-suggestions"></ul>
+    <div class="hint" id="find-hint">…or tap the map where your passenger is going.</div>
+    <ul class="results" id="find-results"></ul>
+    <p class="small" id="find-note"></p>
+  </div>
+</div>
+
+<!-- Report -->
+<div class="sheet passthrough" id="report-sheet" role="dialog" aria-labelledby="report-title">
+  <div class="card">
+    <button class="close" data-close type="button">Close</button>
+    <h2 id="report-title">Report to the group</h2>
+    <p class="small">Move the map so the red cross is on the spot, or use your location. This writes a message for the drivers group. Nothing is stored by this site.</p>
+    <div class="pick" id="report-type">
+      <label><input type="radio" name="rtype" value="Parking camera spotted" checked> Camera here</label>
+      <label><input type="radio" name="rtype" value="Got fined here"> Got fined here</label>
+      <label><input type="radio" name="rtype" value="Map is wrong here"> Map is wrong</label>
+      <label><input type="radio" name="rtype" value="Good drop-off spot"> Good spot</label>
+    </div>
+    <textarea class="field" id="report-note" rows="2" placeholder="What did the sign say? (no plates, names or fine numbers)"></textarea>
+    <div class="row-btns">
+      <button class="btn" id="report-gps" type="button">Use my location</button>
+      <button class="btn go" id="report-send" type="button">Send to group</button>
+    </div>
+    <p class="small" id="report-where"></p>
+    <p class="small">Add a photo of the sign when you post it: that's what gets a fix onto the map.</p>
+  </div>
+</div>
+
+<!-- Info -->
+<div class="sheet" id="info-sheet" role="dialog" aria-modal="true" aria-labelledby="info-title">
+  <div class="card">
+    <button class="close" data-close type="button">Close</button>
+    <h2 id="info-title">About this map</h2>
+    <p>Where rideshare drivers can and can't stop to drop off a passenger in inner Brisbane, built from Brisbane City Council's open parking data. Tap any line for details.</p>
 
     <h3>Covers</h3>
-    <p id="suburbs">Brisbane City, Fortitude Valley, Newstead, Teneriffe, New Farm</p>
+    <p id="suburbs">Brisbane City, Fortitude Valley, Newstead, Teneriffe, New Farm, Spring Hill, Herston</p>
 
-    <h3>Not shown yet</h3>
+    <h3>Quick rules and fines</h3>
     <ul>
-      <li>No Stopping zones marked only by a sign, with no yellow paint.</li>
-      <li>Clearways are drawn at all times. Tap one to see its hours.</li>
-      <li>Exact parking camera positions.</li>
-    </ul>
-
-    <h3>Council parking camera streets</h3>
-    <p class="small">Announced by council in 2025. The network is now 40+ sites, so this list is incomplete.</p>
-    <ul>
-      <li>McLachlan, Wickham, Symes and Robertson Streets, Fortitude Valley</li>
-      <li>Festival Place, Newstead</li>
-      <li>Moray Street, New Farm</li>
-      <li>Charlotte Street, Brisbane City</li>
-    </ul>
-
-    <h3>Quick rules</h3>
-    <ul>
-      <li><b>Yellow line or No Stopping sign:</b> don't stop at all, even for a second.</li>
-      <li><b>Loading zone:</b> up to 2 minutes to drop off or pick up passengers, unless the sign says commercial vehicles only.</li>
+      <li><b>Yellow line or No Stopping sign:</b> don't stop at all, even for a second. $345.</li>
+      <li><b>Clearway in its hours:</b> no stopping, tow-away. $518.</li>
+      <li><b>Bus and taxi zones:</b> never. Rideshare isn't a taxi. $345.</li>
+      <li><b>Loading zone:</b> up to 2 minutes to drop off or pick up passengers, unless it's commercial vehicles only.</li>
       <li><b>No Parking:</b> up to 2 minutes for passengers if you stay within 3 m of the car.</li>
-      <li><b>Bus and taxi zones:</b> never. Rideshare isn't a taxi.</li>
+      <li><b>Corners:</b> no stopping within 10 m of an intersection, 20 m at traffic lights, unless a sign says otherwise. Not drawn on the map yet.</li>
+    </ul>
+
+    <h3>Parking cameras</h3>
+    <p class="small">Blue-shaded streets have a council parking camera somewhere along them, as announced by council or reported in the news. A white camera pin means the exact position isn't confirmed; a filled blue pin is a confirmed position. Cameras run 24/7 and fine any stop in no stopping, bus, taxi and loading zones, clearways and on yellow lines.</p>
+
+    <h3>How it's built</h3>
+    <ul class="small">
+      <li>Red and green lines come from council's painted line records and its sign records. Where there's only a sign, the map runs the rule along the kerb in the direction of the sign's arrow, to the next sign or the corner.</li>
+      <li>Timed rules follow the time at the top of the screen. Public holidays aren't accounted for.</li>
+      <li>Not drawn yet: the corner rule, driveways, and anything missing from council's data.</li>
     </ul>
 
     <h3>Data</h3>
     <p class="small" id="data-dates">Loading…</p>
-    <p class="small">Spotted a mistake? Post it in the drivers group with a photo of the sign.</p>
-    <p class="small">Not legal advice. Not affiliated with Brisbane City Council, Uber or DiDi. Contains data © Brisbane City Council. Map data © OpenStreetMap contributors.</p>
+    <p class="small">Spotted a mistake? Use Report and post it in the drivers group with a photo of the sign.</p>
+    <p class="small">Not legal advice. Not affiliated with Brisbane City Council, Uber or DiDi. Contains data © Brisbane City Council (CC BY 4.0). Map data © OpenStreetMap contributors, OpenFreeMap. Search by Photon (komoot).</p>
   </div>
 </div>
 
 <script src="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.js"></script>
 <script>
 (function () {
-  const COLORS = { red: "#d7263d", green: "#12985a", amber: "#e39b0b", clearway: "#8e2bd6" };
-  const LINE_WIDTH = ["interpolate", ["linear"], ["zoom"], 13, 1.5, 16, 4, 19, 9];
+  "use strict";
+  const C = { red: "#d7263d", green: "#12985a", amber: "#e39b0b", clearway: "#8e2bd6", camera: "#1f5fe0", off: "#8a919c" };
+  const DAY_NAMES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+  const WIDTH = ["interpolate", ["linear"], ["zoom"], 13, 1.5, 16, 4, 19, 9];
+  const dark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+  const $ = (id) => document.getElementById(id);
 
+  // ---------- Time ----------
+  // Brisbane has no daylight saving: its local time is always UTC+10.
+  function brisbaneNow() {
+    const parts = new Intl.DateTimeFormat("en-AU", { timeZone: "Australia/Brisbane", weekday: "short", hour: "numeric", minute: "numeric", hourCycle: "h23" }).formatToParts(new Date());
+    const get = (t) => parts.find(p => p.type === t).value;
+    const day = DAY_NAMES.indexOf(get("weekday").slice(0, 3));
+    return { day: day < 0 ? 0 : day, minute: (parseInt(get("hour"), 10) % 24) * 60 + parseInt(get("minute"), 10) };
+  }
+  let chosen = null; // null = live "now"
+  const currentTime = () => chosen || brisbaneNow();
+  const fmtMinute = (m) => { const h = Math.floor(m / 60) % 24, mm = String(m % 60).padStart(2, "0"); return `${h % 12 || 12}:${mm} ${h < 12 ? "am" : "pm"}`; };
+
+  const parseSched = (s) => s.split(";").map(t => t.split(",").map(Number));
+  function activeAt(f, t) {
+    const s = f.properties.sched;
+    if (!s) return true;
+    if (!f._sched) f._sched = parseSched(s);
+    return f._sched.some(([mask, a, b]) => (mask & (1 << t.day)) && t.minute >= a && t.minute < b);
+  }
+  function describeSched(s) {
+    if (!s) return "";
+    return parseSched(s).map(([mask, a, b]) => {
+      const days = DAY_NAMES.filter((_, i) => mask & (1 << i));
+      const dayText = days.length === 7 ? "Daily" : mask === 31 ? "Mon–Fri" : mask === 63 ? "Mon–Sat" : mask === 96 ? "Sat–Sun" : days.join(", ");
+      return `${dayText} ${fmtMinute(a)}–${b === 1440 ? "midnight" : fmtMinute(b)}`;
+    }).join("; ");
+  }
+
+  // ---------- Map ----------
   const map = new maplibregl.Map({
     container: "map",
-    style: "https://tiles.openfreemap.org/styles/positron",
-    center: [153.031, -27.462],
-    zoom: 14,
-    minZoom: 12,
+    style: `https://tiles.openfreemap.org/styles/${dark ? "dark" : "positron"}`,
+    center: [153.031, -27.462], zoom: 14, minZoom: 12,
     maxBounds: [[152.95, -27.53], [153.12, -27.39]],
     attributionControl: { compact: true, customAttribution: "Parking data © Brisbane City Council (CC BY 4.0)" }
   });
-
   map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-right");
-  map.addControl(new maplibregl.GeolocateControl({
-    positionOptions: { enableHighAccuracy: true },
-    trackUserLocation: true
-  }), "top-right");
+  map.addControl(new maplibregl.GeolocateControl({ positionOptions: { enableHighAccuracy: true }, trackUserLocation: true }), "top-right");
 
-  const LAYERS = [
-    { id: "clearways", file: "data/clearways.geojson", type: "line",
-      paint: { "line-color": COLORS.clearway, "line-width": LINE_WIDTH, "line-dasharray": [2, 1.5], "line-opacity": 0.85 } },
-    { id: "review", file: "data/review.geojson", type: "line",
-      paint: { "line-color": COLORS.amber, "line-width": LINE_WIDTH } },
-    { id: "red", file: "data/red.geojson", type: "line",
-      paint: { "line-color": COLORS.red, "line-width": LINE_WIDTH } },
-    { id: "green", file: "data/green.geojson", type: "line",
-      paint: { "line-color": COLORS.green, "line-width": LINE_WIDTH } },
-    { id: "green-signs", file: "data/green_signs.geojson", type: "circle",
-      paint: { "circle-color": COLORS.green, "circle-radius": ["interpolate", ["linear"], ["zoom"], 13, 3, 17, 7],
-               "circle-stroke-color": "#ffffff", "circle-stroke-width": 2 } }
-  ];
+  const DATA = {};
+  const TIMED = ["red", "green", "clearways"];
 
-  map.on("load", () => {
-    // Keep the basemap to streets and names: drop any point-of-interest layers.
+  async function loadData(name) {
+    const r = await fetch(`data/${name}.geojson`);
+    if (!r.ok) throw new Error(`${name}: ${r.status}`);
+    DATA[name] = await r.json();
+  }
+
+  function applyTime() {
+    const t = currentTime();
+    for (const name of TIMED) {
+      const fc = DATA[name];
+      if (!fc) continue;
+      for (const f of fc.features) f.properties.on = activeAt(f, t);
+      const src = map.getSource(name);
+      if (src) src.setData(fc);
+    }
+    $("time-label").textContent = (chosen ? "Showing " : "Now · ") + `${DAY_NAMES[t.day]} ${fmtMinute(t.minute)}`;
+    $("time-chip").classList.toggle("custom", !!chosen);
+  }
+
+  map.on("load", async () => {
     for (const layer of map.getStyle().layers) {
       if (["poi", "aerodrome_label"].includes(layer["source-layer"])) map.removeLayer(layer.id);
     }
-    for (const l of LAYERS) {
-      map.addSource(l.id, { type: "geojson", data: l.file });
-      map.addLayer({ id: l.id, type: l.type, source: l.id, paint: l.paint,
-                     layout: l.type === "line" ? { "line-cap": "round", "line-join": "round" } : {} });
+    try {
+      await Promise.all(["red", "green", "review", "clearways", "points", "cameras"].map(loadData));
+    } catch (e) {
+      toast("Couldn't load the map data. Check your connection and reload.");
+      return;
     }
+    for (const name of TIMED) for (const f of DATA[name].features) f.properties.on = true;
+    for (const name of Object.keys(DATA)) map.addSource(name, { type: "geojson", data: DATA[name] });
+    const lineLayout = { "line-cap": "round", "line-join": "round" };
+    const isOn = ["!=", ["get", "on"], false], isOff = ["==", ["get", "on"], false];
+    const thin = ["interpolate", ["linear"], ["zoom"], 13, 1, 17, 2.5];
+
+    map.addLayer({ id: "camera-streets", type: "line", source: "cameras", filter: ["==", ["get", "kind"], "street"],
+      layout: { "line-cap": "butt", "line-join": "round" }, paint: { "line-color": C.camera, "line-opacity": 0.28, "line-width": ["interpolate", ["linear"], ["zoom"], 13, 8, 17, 26] } });
+    map.addLayer({ id: "clearways-off", type: "line", source: "clearways", filter: isOff, layout: lineLayout,
+      paint: { "line-color": C.off, "line-width": thin, "line-dasharray": [2, 2], "line-opacity": 0.8 } });
+    map.addLayer({ id: "red-off", type: "line", source: "red", filter: isOff, layout: lineLayout,
+      paint: { "line-color": C.off, "line-width": thin, "line-dasharray": [2, 2], "line-opacity": 0.8 } });
+    map.addLayer({ id: "review", type: "line", source: "review", layout: lineLayout, paint: { "line-color": C.amber, "line-width": WIDTH } });
+    map.addLayer({ id: "green", type: "line", source: "green", filter: isOn, layout: lineLayout, paint: { "line-color": C.green, "line-width": WIDTH } });
+    map.addLayer({ id: "clearways", type: "line", source: "clearways", filter: isOn, layout: lineLayout,
+      paint: { "line-color": C.clearway, "line-width": WIDTH, "line-dasharray": [2, 1.5] } });
+    map.addLayer({ id: "red", type: "line", source: "red", filter: isOn, layout: lineLayout, paint: { "line-color": C.red, "line-width": WIDTH } });
+    map.addLayer({ id: "points", type: "circle", source: "points",
+      paint: { "circle-color": ["match", ["get", "layer"], "red", C.red, "green", C.green, C.amber],
+               "circle-radius": ["interpolate", ["linear"], ["zoom"], 13, 3, 17, 6], "circle-stroke-color": "#fff", "circle-stroke-width": 1.5 } });
+
+    addCameraPins();
+    applyTime();
+    setInterval(() => { if (!chosen) applyTime(); }, 60 * 1000);
+    document.querySelector(".maplibregl-ctrl-attrib")?.classList.remove("maplibregl-compact-show");
+    document.body.dataset.ready = "1";
   });
 
-  // Tap anywhere near a line: lines are thin, so search a small box around the tap.
-  const interactive = LAYERS.map(l => l.id);
-  map.on("click", (e) => {
-    const r = 12;
-    const box = [[e.point.x - r, e.point.y - r], [e.point.x + r, e.point.y + r]];
-    const hits = map.queryRenderedFeatures(box, { layers: interactive.filter(id => map.getLayer(id)) });
-    if (!hits.length) return;
-    const p = hits[0].properties;
+  // ---------- Cameras ----------
+  const CAM_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8h3l2-3h8l2 3h3v11H3z"/><circle cx="12" cy="13" r="3.5"/></svg>';
+  function addCameraPins() {
+    for (const f of DATA.cameras.features) {
+      if (f.geometry.type !== "Point") continue;
+      const p = f.properties;
+      const el = document.createElement("div");
+      el.className = "cam-pin" + (p.kind === "pin" && p.status === "confirmed" ? "" : " unconfirmed");
+      el.innerHTML = CAM_SVG;
+      el.setAttribute("role", "button");
+      el.setAttribute("aria-label", `${p.label}, ${p.street}`);
+      el.addEventListener("click", (e) => { e.stopPropagation(); showPopup(f.geometry.coordinates, p, "camera"); });
+      new maplibregl.Marker({ element: el }).setLngLat(f.geometry.coordinates).addTo(map);
+    }
+  }
+
+  // ---------- Popups ----------
+  const INTERACTIVE = ["red", "red-off", "green", "clearways", "clearways-off", "review", "points", "camera-streets"];
+  function showPopup(lngLat, p, kind) {
     const el = document.createElement("div");
-    const add = (cls, text) => { if (!text) return; const d = document.createElement("div"); d.className = cls; d.textContent = text; el.appendChild(d); };
+    const add = (cls, text) => { if (!text) return null; const d = document.createElement("div"); d.className = cls; d.textContent = text; el.appendChild(d); return d; };
     add("pop-label", p.label);
     add("pop-street", p.street);
-    add("pop-hours", p.hours ? "Hours: " + p.hours : "");
-    add("pop-hours", p.arrow ? "Sign arrow: " + p.arrow : "");
-    new maplibregl.Popup({ closeButton: true, maxWidth: "260px" }).setLngLat(e.lngLat).setDOMContent(el).addTo(map);
+    if (kind === "camera") {
+      add("pop-line", p.note);
+      add("pop-line", p.fine);
+      add("pop-line", p.source ? "Source: " + p.source : "");
+    } else {
+      const green = kind === "green";
+      if (p.sched) {
+        add("pop-line", (green ? "Applies: " : "In force: ") + describeSched(p.sched));
+        const on = p.on !== false && p.on !== "false";
+        add("pop-state " + (on ? (green ? "go" : "on") : "off"),
+            on ? (green ? "OK at the selected time" : "In force at the selected time") : (green ? "Not available at the selected time" : "Not in force at the selected time"));
+      } else if (p.hours && p.hours !== "All times") {
+        add("pop-line", "Sign says: " + p.hours);
+      } else if (kind === "clearways") {
+        add("pop-line", "In force at all times");
+      }
+      add("pop-line", p.fine ? (green ? "Careful: " : "Fine: ") + p.fine : "");
+      add("pop-line", p.arrow ? "Sign arrow: " + p.arrow : "");
+      add("pop-line small", p.src === "sign" ? "From council's sign records" : p.src === "paint" ? "From council's painted line records" : "");
+    }
+    new maplibregl.Popup({ closeButton: true, maxWidth: "280px" }).setLngLat(lngLat).setDOMContent(el).addTo(map);
+  }
+
+  let mapTapMode = null; // "find" while the finder is open
+  map.on("click", (e) => {
+    if (mapTapMode === "find") { setDestination([e.lngLat.lng, e.lngLat.lat], "the tapped spot"); return; }
+    if (sheets.report.classList.contains("open")) return;
+    const r = 12;
+    const layers = INTERACTIVE.filter(id => map.getLayer(id));
+    const hits = map.queryRenderedFeatures([[e.point.x - r, e.point.y - r], [e.point.x + r, e.point.y + r]], { layers });
+    if (!hits.length) return;
+    const order = ["red", "clearways", "green", "review", "points", "red-off", "clearways-off", "camera-streets"];
+    hits.sort((a, b) => order.indexOf(a.layer.id) - order.indexOf(b.layer.id));
+    const h = hits[0];
+    const kind = h.layer.id === "camera-streets" ? "camera" : h.layer.id.replace("-off", "");
+    showPopup(e.lngLat, h.properties, kind);
   });
   map.on("mousemove", (e) => {
-    const r = 6;
-    const hits = map.queryRenderedFeatures([[e.point.x - r, e.point.y - r], [e.point.x + r, e.point.y + r]],
-      { layers: interactive.filter(id => map.getLayer(id)) });
-    map.getCanvas().style.cursor = hits.length ? "pointer" : "";
+    const r = 6, layers = INTERACTIVE.filter(id => map.getLayer(id));
+    const hits = layers.length ? map.queryRenderedFeatures([[e.point.x - r, e.point.y - r], [e.point.x + r, e.point.y + r]], { layers }) : [];
+    map.getCanvas().style.cursor = mapTapMode ? "crosshair" : hits.length ? "pointer" : "";
   });
 
-  // Start with the attribution collapsed so it doesn't sit under the key.
-  map.once("idle", () => {
-    document.querySelector(".maplibregl-ctrl-attrib")?.classList.remove("maplibregl-compact-show");
+  // ---------- Geometry (metres, local projection) ----------
+  const M_LAT = 110574, M_LON = 111320 * Math.cos(-27.46 * Math.PI / 180);
+  const xy = (lon, lat) => [lon * M_LON, lat * M_LAT];
+  function distToFeature(px, py, f) {
+    const g = f.geometry;
+    const lines = g.type === "LineString" ? [g.coordinates] : g.type === "MultiLineString" ? g.coordinates : [[g.coordinates]];
+    let best = Infinity, bestPt = null;
+    for (const line of lines) {
+      const pts = line.map(c => xy(c[0], c[1]));
+      if (pts.length === 1) {
+        const d = Math.hypot(px - pts[0][0], py - pts[0][1]);
+        if (d < best) { best = d; bestPt = line[0]; }
+      }
+      for (let i = 0; i < pts.length - 1; i++) {
+        const [ax, ay] = pts[i], [bx, by] = pts[i + 1];
+        const dx = bx - ax, dy = by - ay, L = dx * dx + dy * dy;
+        const t = L ? Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / L)) : 0;
+        const qx = ax + t * dx, qy = ay + t * dy, d = Math.hypot(px - qx, py - qy);
+        if (d < best) { best = d; bestPt = [qx / M_LON, qy / M_LAT]; }
+      }
+    }
+    return [best, bestPt];
+  }
+  function nearestStreet(lon, lat) {
+    const [px, py] = xy(lon, lat);
+    let best = [60, ""];
+    for (const name of ["red", "green", "review", "clearways"]) {
+      for (const f of (DATA[name]?.features || [])) {
+        if (!f.properties.street) continue;
+        const [d] = distToFeature(px, py, f);
+        if (d < best[0]) best = [d, f.properties.street];
+      }
+    }
+    return best[1];
+  }
+
+  // ---------- Finder ----------
+  let destMarker = null, spotMarkers = [];
+  function clearFinder() {
+    destMarker?.remove(); destMarker = null;
+    spotMarkers.forEach(m => m.remove()); spotMarkers = [];
+    $("find-results").innerHTML = ""; $("find-note").textContent = "";
+    $("find-hint").textContent = "…or tap the map where your passenger is going.";
+  }
+  function setDestination(lngLat, name) {
+    clearFinder();
+    $("find-suggestions").innerHTML = "";
+    const el = document.createElement("div"); el.className = "dest-pin";
+    destMarker = new maplibregl.Marker({ element: el }).setLngLat(lngLat).addTo(map);
+    const [px, py] = xy(lngLat[0], lngLat[1]);
+    const t = currentTime();
+    const spots = [];
+    for (const f of DATA.green.features) {
+      if (!activeAt(f, t)) continue;
+      const [d, pt] = distToFeature(px, py, f);
+      if (d <= 400) spots.push({ d, pt, f });
+    }
+    for (const f of DATA.points.features) {
+      if (f.properties.layer !== "green") continue;
+      const [d, pt] = distToFeature(px, py, f);
+      if (d <= 400) spots.push({ d, pt, f });
+    }
+    spots.sort((a, b) => a.d - b.d);
+    const picked = [];
+    for (const s of spots) {  // skip near-duplicates on the same bit of kerb
+      const [sx, sy] = xy(s.pt[0], s.pt[1]);
+      if (picked.every(p => { const [qx, qy] = xy(p.pt[0], p.pt[1]); return Math.hypot(sx - qx, sy - qy) > 25; })) picked.push(s);
+      if (picked.length === 3) break;
+    }
+    const list = $("find-results");
+    if (!picked.length) {
+      $("find-note").textContent = "No mapped drop-off spot within 400 m at the selected time. Look for a legal parking bay or a quiet side street, and check the signs.";
+    }
+    picked.forEach((s, i) => {
+      const walk = Math.max(10, Math.round(s.d * 1.25 / 10) * 10); // footpaths aren't straight lines
+      const li = document.createElement("li");
+      const b = document.createElement("button");
+      b.innerHTML = `<span class="dist"></span><b></b><span class="sub"></span>`;
+      b.querySelector(".dist").textContent = `~${walk} m walk`;
+      b.querySelector("b").textContent = `${i + 1}. ${s.f.properties.street || "Unnamed street"}`;
+      b.querySelector(".sub").textContent = s.f.properties.label;
+      b.addEventListener("click", () => { map.flyTo({ center: s.pt, zoom: 18 }); showPopup(s.pt, s.f.properties, "green"); });
+      li.appendChild(b); list.appendChild(li);
+      const pin = document.createElement("div"); pin.className = "spot-pin"; pin.textContent = String(i + 1);
+      pin.addEventListener("click", (e) => { e.stopPropagation(); showPopup(s.pt, s.f.properties, "green"); });
+      spotMarkers.push(new maplibregl.Marker({ element: pin }).setLngLat(s.pt).addTo(map));
+    });
+    if (picked.length) $("find-note").textContent = `Nearest legal drop-off spots to ${name}. Walking distances are rough.`;
+    const pts = [lngLat, ...picked.map(s => s.pt)];
+    const lons = pts.map(p => p[0]), lats = pts.map(p => p[1]);
+    const narrow = window.innerWidth < 720;
+    map.fitBounds([[Math.min(...lons), Math.min(...lats)], [Math.max(...lons), Math.max(...lats)]],
+      { padding: { top: 120, bottom: narrow ? window.innerHeight * 0.5 : 60, left: 50, right: narrow ? 50 : 440 }, maxZoom: 18, duration: 600 });
+    $("find-hint").textContent = "Tap the map again to try another spot.";
+  }
+
+  let searchTimer = null, searchSeq = 0;
+  $("find-input").addEventListener("input", () => {
+    clearTimeout(searchTimer);
+    const q = $("find-input").value.trim();
+    if (q.length < 3) { $("find-suggestions").innerHTML = ""; return; }
+    searchTimer = setTimeout(() => search(q), 350);
+  });
+  async function search(q) {
+    const seq = ++searchSeq;
+    const url = `https://photon.komoot.io/api/?q=${encodeURIComponent(q)}&lat=-27.462&lon=153.031&limit=6&lang=en&bbox=152.98,-27.50,153.08,-27.42`;
+    let data;
+    try { data = await (await fetch(url)).json(); } catch { toast("Search isn't available right now. Tap the map instead."); return; }
+    if (seq !== searchSeq) return;
+    const list = $("find-suggestions"); list.innerHTML = "";
+    if (!data.features?.length) { list.innerHTML = '<li class="small">No matches nearby. Tap the map instead.</li>'; return; }
+    for (const f of data.features) {
+      const p = f.properties;
+      const title = p.name || [p.housenumber, p.street].filter(Boolean).join(" ") || "Unnamed place";
+      const sub = [p.name && p.street ? [p.housenumber, p.street].filter(Boolean).join(" ") : "", p.district || p.locality || p.city].filter(Boolean).join(", ");
+      const li = document.createElement("li"); const b = document.createElement("button");
+      b.innerHTML = "<b></b><span class='sub'></span>";
+      b.querySelector("b").textContent = title; b.querySelector(".sub").textContent = sub;
+      b.addEventListener("click", () => { $("find-input").value = title; setDestination(f.geometry.coordinates, title); });
+      li.appendChild(b); list.appendChild(li);
+    }
+  }
+
+  // ---------- Report ----------
+  let reportPoint = null;
+  function updateReportWhere() {
+    const c = reportPoint || [map.getCenter().lng, map.getCenter().lat];
+    const street = nearestStreet(c[0], c[1]);
+    $("report-where").textContent = (reportPoint ? "Using your location" : "Location: where the red cross is") + (street ? ` · near ${street}` : "");
+  }
+  map.on("moveend", () => { if (sheets.report.classList.contains("open") && !reportPoint) updateReportWhere(); });
+  map.on("dragstart", () => { if (sheets.report.classList.contains("open")) reportPoint = null; });
+  $("report-gps").addEventListener("click", () => {
+    if (!navigator.geolocation) { toast("Location isn't available on this device."); return; }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => { reportPoint = [pos.coords.longitude, pos.coords.latitude]; map.flyTo({ center: reportPoint, zoom: 18 }); updateReportWhere(); },
+      () => toast("Couldn't get your location. Move the map to the spot instead."),
+      { enableHighAccuracy: true, timeout: 10000 });
+  });
+  function reportText() {
+    const c = reportPoint || [map.getCenter().lng, map.getCenter().lat];
+    const lat = c[1].toFixed(5), lon = c[0].toFixed(5);
+    const type = document.querySelector('input[name="rtype"]:checked').value;
+    const note = $("report-note").value.trim();
+    const street = nearestStreet(c[0], c[1]);
+    const t = brisbaneNow();
+    return [
+      `Drop-off map report: ${type}`,
+      street ? `Near: ${street}` : "",
+      `Where: https://www.google.com/maps?q=${lat},${lon}`,
+      note ? `Note: ${note}` : "",
+      `Reported: ${DAY_NAMES[t.day]} ${fmtMinute(t.minute)}`,
+      "(from the Brisbane Drop-off Map)"
+    ].filter(Boolean).join("\n");
+  }
+  $("report-send").addEventListener("click", async () => {
+    const text = reportText();
+    if (navigator.share) {
+      try { await navigator.share({ text }); return; } catch (e) { if (e.name === "AbortError") return; }
+    }
+    try { await navigator.clipboard.writeText(text); toast("Copied. Paste it into the drivers group."); }
+    catch { window.prompt("Copy this into the drivers group:", text); }
   });
 
-  // Key: tap to collapse, so it doesn't cover the map while driving around.
-  const legend = document.getElementById("legend");
-  legend.addEventListener("click", () => {
-    const collapsed = legend.classList.toggle("collapsed");
+  // ---------- Sheets ----------
+  const sheets = { time: $("time-sheet"), find: $("find-sheet"), report: $("report-sheet"), info: $("info-sheet") };
+  function openSheet(name) {
+    Object.entries(sheets).forEach(([k, el]) => el.classList.toggle("open", k === name));
+    mapTapMode = name === "find" ? "find" : null;
+    $("crosshair").classList.toggle("on", name === "report");
+    if (name === "report") { reportPoint = null; updateReportWhere(); }
+    if (name === "time") {
+      const t = currentTime();
+      $("day-select").value = String(t.day);
+      $("time-input").value = `${String(Math.floor(t.minute / 60)).padStart(2, "0")}:${String(t.minute % 60).padStart(2, "0")}`;
+    }
+  }
+  function closeSheets() {
+    Object.values(sheets).forEach(el => el.classList.remove("open"));
+    mapTapMode = null; $("crosshair").classList.remove("on");
+  }
+  document.querySelectorAll("[data-close]").forEach(b => b.addEventListener("click", () => { closeSheets(); if (b.closest("#find-sheet")) clearFinder(); }));
+  Object.values(sheets).forEach(el => el.addEventListener("click", (e) => { if (e.target === el) closeSheets(); }));
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeSheets(); });
+  $("info-btn").addEventListener("click", () => openSheet("info"));
+  $("time-chip").addEventListener("click", () => openSheet("time"));
+  $("find-btn").addEventListener("click", () => openSheet("find"));
+  $("report-btn").addEventListener("click", () => openSheet("report"));
+  $("time-apply").addEventListener("click", () => {
+    const [h, m] = ($("time-input").value || "00:00").split(":").map(Number);
+    chosen = { day: parseInt($("day-select").value, 10), minute: h * 60 + m };
+    applyTime(); closeSheets();
+  });
+  $("time-now").addEventListener("click", () => { chosen = null; applyTime(); closeSheets(); });
+
+  const legend = $("legend");
+  function setLegend(collapsed) {
+    legend.classList.toggle("collapsed", collapsed);
     legend.setAttribute("aria-expanded", String(!collapsed));
-    document.getElementById("legend-toggle").textContent = collapsed ? "show" : "hide";
+    $("legend-toggle").textContent = collapsed ? "show" : "hide";
+  }
+  legend.addEventListener("click", () => {
+    const collapsed = !legend.classList.contains("collapsed");
+    setLegend(collapsed);
+    try { localStorage.setItem("legendCollapsed", collapsed ? "1" : "0"); } catch {}
   });
+  try { if (localStorage.getItem("legendCollapsed") === "1") setLegend(true); } catch {}
 
-  // Info sheet
-  const sheet = document.getElementById("sheet");
-  const open = () => sheet.classList.add("open");
-  const close = () => sheet.classList.remove("open");
-  document.getElementById("info-btn").addEventListener("click", open);
-  document.getElementById("close-btn").addEventListener("click", close);
-  sheet.addEventListener("click", (e) => { if (e.target === sheet) close(); });
-  document.addEventListener("keydown", (e) => { if (e.key === "Escape") close(); });
+  // Keep the buttons and key above the bottom notice, however many lines it wraps to.
+  const notice = $("notice");
+  const fitNotice = () => document.documentElement.style.setProperty("--nh", notice.offsetHeight + "px");
+  window.addEventListener("resize", fitNotice);
+  fitNotice();
 
-  // Data dates for the info sheet
+  let toastTimer = null;
+  function toast(msg) {
+    const el = $("toast"); el.textContent = msg; el.classList.add("show");
+    clearTimeout(toastTimer); toastTimer = setTimeout(() => el.classList.remove("show"), 3500);
+  }
+
   fetch("data/meta.json").then(r => r.json()).then(meta => {
     const fmt = (iso) => iso ? new Date(iso).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" }) : "unknown";
-    document.getElementById("suburbs").textContent = meta.suburbs.join(", ");
-    document.getElementById("data-dates").textContent =
-      `Council line data last updated ${fmt(meta.council_data_edited.lines)}. Map built ${fmt(meta.built_at)}.`;
-  }).catch(() => {
-    document.getElementById("data-dates").textContent = "Data dates unavailable.";
-  });
+    $("suburbs").textContent = meta.suburbs.join(", ");
+    const agree = meta.checks?.arrow_convention?.agreement;
+    $("data-dates").textContent = `Council line and sign data last updated ${fmt(meta.council_data_edited.lines)}. Map built ${fmt(meta.built_at)}.` +
+      (agree ? ` Sign arrow check: ${Math.round(agree * 100)}% of matching sign pairs agree.` : "");
+  }).catch(() => { $("data-dates").textContent = "Data dates unavailable."; });
+
+  if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
+
+  // Exposed for automated checks only.
+  window.__dropoff = { map, DATA, setDestination, reportText, applyTime, setChosen: (t) => { chosen = t; applyTime(); } };
 })();
 </script>
 </body>
