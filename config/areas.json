@@ -1,0 +1,13 @@
+{
+  "_comment": "Areas shown as tabs across the top of the map, in this order. Each groups one or more scope suburbs (council SUBURB_NAME). name = tab text, title = full description. labels sets the name drawn on the map for a suburb (default: the suburb name) and can pin its position with \"at\": [lon, lat]. A live suburb missing from every area gets a tab of its own. See decision D039.",
+  "areas": [
+    {"id": "cbd", "name": "CBD", "title": "Brisbane City (CBD)", "suburbs": ["BRISBANE CITY"]},
+    {"id": "valley", "name": "Valley", "title": "Fortitude Valley", "suburbs": ["FORTITUDE VALLEY"]},
+    {"id": "spring-hill", "name": "Spring Hill", "title": "Spring Hill", "suburbs": ["SPRING HILL"]},
+    {"id": "herston", "name": "Herston", "title": "Herston (RBWH)", "suburbs": ["HERSTON"]},
+    {"id": "new-farm", "name": "New Farm", "title": "Newstead, Teneriffe and New Farm", "suburbs": ["NEWSTEAD", "TENERIFFE", "NEW FARM"]}
+  ],
+  "labels": {
+    "BRISBANE CITY": {"text": "CBD"}
+  }
+}

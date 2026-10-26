@@ -26,14 +26,24 @@
   #map { position: fixed; inset: 0; }
   button { font: inherit; color: inherit; }
 
-  .bar { position: fixed; top: 0; left: 0; right: 0; z-index: 3; display: flex; align-items: center; gap: 8px;
+  .bar { position: fixed; top: 0; left: 0; right: 0; z-index: 3; display: flex; flex-wrap: wrap; align-items: center; column-gap: 8px;
          padding: calc(8px + env(safe-area-inset-top)) 10px 8px; background: var(--ink); color: #fff; }
   .bar h1 { font-size: 15px; margin: 0; font-weight: 650; letter-spacing: -0.01em; white-space: nowrap; }
   .bar .tag { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; background: var(--amber); color: var(--ink); padding: 2px 5px; border-radius: 4px; }
   .bar .spacer { flex: 1; }
   .bar button { background: transparent; color: #fff; border: 1px solid rgba(255,255,255,0.3); border-radius: 8px; padding: 6px 10px; font-size: 13.5px; cursor: pointer; }
+  /* Area tabs: a second row on phones, inline after the title on wide screens. */
+  .areas { order: 9; flex: 1 0 100%; display: flex; gap: 2px; min-height: 34px; margin: 4px -10px -8px; padding: 0 1px; overflow-x: auto; scrollbar-width: none; }
+  .areas::-webkit-scrollbar { display: none; }
+  .bar .areas button { flex: none; border: 0; border-bottom: 2.5px solid transparent; border-radius: 0; background: none; color: rgba(255,255,255,0.66);
+                       padding: 6px 9px 7px; font-size: 13.5px; font-weight: 600; white-space: nowrap; }
+  .bar .areas button[aria-current="true"] { color: #fff; border-bottom-color: #3fe08a; }
+  @media (min-width: 720px) {
+    .areas { order: 0; flex: 0 1 auto; align-self: stretch; margin: -8px 0 -8px 12px; padding: 0; }
+    .bar .areas button { padding: 0 10px; }
+  }
 
-  .chip { position: fixed; z-index: 3; top: calc(52px + env(safe-area-inset-top)); left: 10px;
+  .chip { position: fixed; z-index: 3; top: calc(var(--bh, 52px) + 8px); left: 10px;
           background: var(--panel); color: var(--text); border: 0; border-radius: 999px; padding: 7px 12px; font-size: 13.5px; font-weight: 600;
           box-shadow: 0 3px 12px rgba(0,0,0,0.18); cursor: pointer; display: flex; gap: 6px; align-items: center; }
   .chip .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); }
@@ -57,6 +67,7 @@
   .legend.collapsed .head { padding: 0; }
   .legend .toggle { display: flex; gap: 6px; align-items: center; margin-top: 5px; padding-top: 6px; border-top: 1px solid var(--line); color: var(--muted); cursor: pointer; }
   .legend .toggle input { margin: 0; }
+  .legend .toggle + .toggle { margin-top: 0; padding-top: 4px; border-top: 0; }
   .swatch { width: 22px; height: 5px; border-radius: 3px; flex: none; }
   .swatch.go { height: 6px; background: var(--go); box-shadow: 0 0 6px 1px var(--go); }
   .swatch.nogo { height: 2.5px; background: var(--nogo); opacity: 0.75; }
@@ -75,7 +86,7 @@
   .card { position: absolute; left: 0; right: 0; bottom: 0; max-height: 82vh; overflow: auto; background: var(--panel); color: var(--text);
           border-radius: 16px 16px 0 0; padding: 16px 16px calc(20px + env(safe-area-inset-bottom)); box-shadow: 0 -6px 24px rgba(0,0,0,0.2); }
   .passthrough .card { max-height: 48vh; }
-  @media (min-width: 720px) { .card, .passthrough .card { left: auto; right: 16px; top: 64px; bottom: auto; width: 400px; border-radius: 16px; max-height: calc(100vh - 90px); } }
+  @media (min-width: 720px) { .card, .passthrough .card { left: auto; right: 16px; top: calc(var(--bh, 52px) + 12px); bottom: auto; width: 400px; border-radius: 16px; max-height: calc(100vh - var(--bh, 52px) - 38px); } }
   .card h2 { font-size: 18px; margin: 0 0 6px; }
   .card h3 { font-size: 12.5px; margin: 16px 0 6px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); }
   .card ul { padding-left: 18px; margin: 6px 0; }
@@ -106,7 +117,7 @@
   .pop-state.on { color: var(--red); }
   .pop-state.go { color: var(--green); }
   .pop-state.off { color: var(--muted); }
-  .maplibregl-ctrl-top-right { top: calc(52px + env(safe-area-inset-top)); }
+  .maplibregl-ctrl-top-right { top: var(--bh, 52px); }
   .maplibregl-ctrl-bottom-right, .maplibregl-ctrl-bottom-left { bottom: var(--nh, 34px); }
 
   .cam-pin { width: 30px; height: 30px; border-radius: 50%; background: var(--camera); border: 2px solid #fff; box-shadow: 0 2px 8px rgba(0,0,0,0.35);
@@ -130,9 +141,10 @@
 <div id="map" role="region" aria-label="Map of stopping restrictions"></div>
 <div class="crosshair" id="crosshair" aria-hidden="true"></div>
 
-<header class="bar">
+<header class="bar" id="bar">
   <h1>Brisbane Drop-off Map</h1>
   <span class="tag">Beta</span>
+  <nav class="areas" id="areas" aria-label="Jump to an area"></nav>
   <span class="spacer"></span>
   <button id="info-btn" type="button" aria-haspopup="dialog">Info</button>
 </header>
@@ -150,6 +162,7 @@
     <div class="row detail"><span class="swatch off"></span>Not in force now</div>
     <div class="row"><span class="swatch cam" id="legend-cam"></span>Parking camera</div>
     <label class="toggle"><input type="checkbox" id="detail-toggle"> Show all rule types</label>
+    <label class="toggle"><input type="checkbox" id="borders-toggle"> Suburb borders</label>
   </div>
 </div>
 
@@ -224,6 +237,7 @@
     <button class="close" data-close type="button">Close</button>
     <h2 id="info-title">About this map</h2>
     <p>Where rideshare drivers can and can't stop to drop off a passenger in inner Brisbane, built from Brisbane City Council's open parking data. Tap any line for details.</p>
+    <p class="small">The tabs at the top jump between areas. To share one, copy the link while it's showing: it opens straight on that area. Suburb borders can be switched on in the key.</p>
 
     <h3>Covers</h3>
     <p id="suburbs">Brisbane City, Fortitude Valley, Newstead, Teneriffe, New Farm, Spring Hill, Herston</p>
@@ -384,6 +398,104 @@
     return () => { if (!detail) applyMode(); };
   }
 
+  // ---------- Areas ----------
+  // Tabs jump between areas, and the tab for the area the map is centred on is lit. Each
+  // area has its own link (…/#valley) to share in the group. Suburb names and a few
+  // landmarks are drawn on the map for bearings; suburb borders are optional (D039).
+  let AREAS = [], currentArea, borders = false;
+  try { borders = localStorage.getItem("showBorders") === "1"; } catch {}
+  const areasReady = fetch("data/areas.geojson").then(r => r.ok ? r.json() : null).then(fc => {
+    if (!fc) return null;
+    AREAS = fc.features.filter(f => f.properties.kind === "area");
+    for (const f of AREAS) {
+      const p = f.properties, b = document.createElement("button");
+      b.type = "button"; b.textContent = p.name; b.title = p.title; b.dataset.area = p.id;
+      b.addEventListener("click", () => showArea(p.id));
+      $("areas").appendChild(b);
+    }
+    fitBar();
+    const linked = location.hash.slice(1);
+    if (AREAS.some(f => f.properties.id === linked)) showArea(linked, false); else updateArea();
+    return fc;
+  }).catch(() => null);
+
+  function showArea(id, animate = true) {
+    const f = AREAS.find(a => a.properties.id === id);
+    if (!f) return;
+    const [w, s, e, n] = f.properties.bbox;
+    // Frame the area between the time chip and whatever sits at the bottom (key, buttons).
+    const bottom = $("notice").offsetHeight + 20 + Math.max($("legend").offsetHeight, document.querySelector(".actions").offsetHeight);
+    map.fitBounds([[w, s], [e, n]], { maxZoom: 14.8, duration: animate ? 700 : 0,
+      padding: { top: $("bar").offsetHeight + 50, bottom, left: 20, right: 20 } });
+  }
+  function inRings(lon, lat, rings) {
+    let inside = false;
+    for (const ring of rings) {
+      for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+        const [x1, y1] = ring[i], [x2, y2] = ring[j];
+        if ((y1 > lat) !== (y2 > lat) && lon < x1 + (lat - y1) * (x2 - x1) / (y2 - y1)) inside = !inside;
+      }
+    }
+    return inside;
+  }
+  const areaAt = (lon, lat) => AREAS.find(f => f.geometry.coordinates.some(poly => inRings(lon, lat, poly)))?.properties.id ?? null;
+  function updateArea() {
+    const c = map.getCenter(), id = areaAt(c.lng, c.lat);
+    if (id === currentArea) return;
+    currentArea = id;
+    for (const b of $("areas").children) b.setAttribute("aria-current", String(b.dataset.area === id));
+    $("areas").querySelector('[aria-current="true"]')?.scrollIntoView({ block: "nearest", inline: "nearest" });
+    try { history.replaceState(null, "", id ? "#" + id : location.pathname + location.search); } catch {}
+  }
+  map.on("moveend", updateArea);
+
+  const kindIs = (k) => ["==", ["get", "kind"], k];
+  // Borders go under the green; names and landmarks go on top so they stay readable.
+  function addAreaBorders(fc) {
+    map.addSource("areas", { type: "geojson", data: fc });
+    map.addLayer({ id: "suburb-borders", type: "line", source: "areas", filter: kindIs("border"),
+      layout: { "line-join": "round", visibility: borders ? "visible" : "none" },
+      paint: { "line-color": dark ? "#c3cad3" : "#2f3640", "line-opacity": 0.5, "line-dasharray": [3, 2],
+               "line-width": ["interpolate", ["linear"], ["zoom"], 12, 1, 16, 2] } });
+  }
+  function addAreaLabels(fc) {
+    // Our area names replace the basemap's for these suburbs (and its "Brisbane" on the CBD).
+    const own = ["Brisbane", ...fc.features.filter(f => f.properties.kind === "label").map(f => f.properties.suburb)];
+    const notOurs = ["!", ["in", ["coalesce", ["get", "name_en"], ["get", "name"]], ["literal", own]]];
+    for (const layer of map.getStyle().layers) {
+      if (layer.type !== "symbol" || layer["source-layer"] !== "place") continue;
+      const f = map.getFilter(layer.id);
+      map.setFilter(layer.id, f ? ["all", f, notOurs] : notOurs);
+    }
+    const ink = dark ? "#eef1f4" : "#1f252d", halo = dark ? "rgba(15,17,20,0.9)" : "rgba(255,255,255,0.95)";
+    // A landmark is a small ring with its name beside it; ring and name show or hide together.
+    const ring = document.createElement("canvas");
+    ring.width = ring.height = 20;
+    const g = ring.getContext("2d");
+    g.beginPath(); g.arc(10, 10, 6.4, 0, 2 * Math.PI);
+    g.fillStyle = dark ? "#0f1114" : "#ffffff"; g.fill();
+    g.lineWidth = 3.2; g.strokeStyle = ink; g.stroke();
+    map.addImage("landmark-ring", g.getImageData(0, 0, 20, 20), { pixelRatio: 2 });
+    map.addLayer({ id: "landmarks", type: "symbol", source: "areas", filter: kindIs("landmark"), minzoom: 12.8,
+      layout: { "icon-image": "landmark-ring", "icon-allow-overlap": true, "text-field": ["get", "name"], "text-font": ["Noto Sans Bold"],
+                "text-size": ["interpolate", ["linear"], ["zoom"], 12.8, 11, 16, 12.5],
+                "text-variable-anchor": ["left", "right", "top", "bottom"], "text-radial-offset": 0.7, "text-justify": "auto", "text-max-width": 10 },
+      paint: { "text-color": ink, "text-halo-color": halo, "text-halo-width": 1.6 } });
+    // Suburb names win a clash with a landmark (higher layers are placed first). The build
+    // picks a clear spot for each; zoomed further out, a name can slide aside to dodge a pin.
+    map.addLayer({ id: "area-labels", type: "symbol", source: "areas", filter: kindIs("label"), maxzoom: 15.4,
+      layout: { "text-field": ["get", "text"], "text-font": ["Noto Sans Bold"], "text-transform": "uppercase", "text-letter-spacing": 0.1,
+                "text-size": ["interpolate", ["linear"], ["zoom"], 12, 11, 14, 13], "text-max-width": 8,
+                "text-variable-anchor": ["center", "top", "bottom", "left", "right"], "text-radial-offset": 0.4 },
+      paint: { "text-color": dark ? "#aab3bf" : "#4b5361", "text-halo-color": halo, "text-halo-width": 1.6,
+               "text-opacity": ["interpolate", ["linear"], ["zoom"], 15, 1, 15.4, 0] } });
+    // Camera pins are page elements the map can't see, so reserve their space with an invisible
+    // symbol: labels then move aside or hide instead of disappearing under a pin.
+    map.addImage("pin-space", { width: 32, height: 32, data: new Uint8Array(32 * 32 * 4) });
+    map.addLayer({ id: "pin-space", type: "symbol", source: "cameras", filter: ["==", ["geometry-type"], "Point"],
+      layout: { "icon-image": "pin-space", "icon-allow-overlap": true }, paint: { "icon-opacity": 0 } });
+  }
+
   map.on("load", async () => {
     for (const layer of map.getStyle().layers) {
       if (["poi", "aerodrome_label"].includes(layer["source-layer"])) map.removeLayer(layer.id);
@@ -394,6 +506,7 @@
       toast("Couldn't load the map data. Check your connection and reload.");
       return;
     }
+    const areaFC = await areasReady;
     for (const name of TIMED) for (const f of DATA[name].features) f.properties.on = true;
     for (const name of Object.keys(DATA)) map.addSource(name, { type: "geojson", data: DATA[name] });
     const lineLayout = { "line-cap": "round", "line-join": "round" };
@@ -424,6 +537,8 @@
     map.addLayer({ id: "nogo-clearways", type: "line", source: "clearways", filter: isOn, layout: lineLayout, paint: nogoPaint });
     map.addLayer({ id: "nogo-red", type: "line", source: "red", filter: isOn, layout: lineLayout, paint: nogoPaint });
 
+    if (areaFC) addAreaBorders(areaFC);
+
     // Green on top in both views, with a soft glow so it reads at a glance.
     map.addLayer({ id: "green-glow", type: "line", source: "green", filter: isOn, layout: lineLayout,
       paint: { "line-color": P.glow, "line-blur": 6, "line-opacity": dark ? 0.35 : 0.3,
@@ -440,6 +555,7 @@
     map.addLayer({ id: "points", type: "circle", source: "points",
       paint: { "circle-color": ["match", ["get", "layer"], "red", C.red, "green", P.go, C.amber],
                "circle-radius": ["interpolate", ["linear"], ["zoom"], 13, 3, 17, 6], "circle-stroke-color": P.dotStroke, "circle-stroke-width": 1.5 } });
+    if (areaFC) addAreaLabels(areaFC);
 
     addCameraPins();
     applyMode();
@@ -750,6 +866,12 @@
     try { localStorage.setItem("detailView", detail ? "1" : "0"); } catch {}
     applyMode();
   });
+  $("borders-toggle").checked = borders;
+  $("borders-toggle").addEventListener("change", (e) => {
+    borders = e.target.checked;
+    try { localStorage.setItem("showBorders", borders ? "1" : "0"); } catch {}
+    if (map.getLayer("suburb-borders")) map.setLayoutProperty("suburb-borders", "visibility", borders ? "visible" : "none");
+  });
 
   $("find-near-me").addEventListener("click", () => {
     if (!navigator.geolocation) { toast("Location isn't available on this device."); return; }
@@ -759,11 +881,13 @@
       { enableHighAccuracy: true, timeout: 10000 });
   });
 
-  // Keep the buttons and key above the bottom notice, however many lines it wraps to.
-  const notice = $("notice");
+  // Keep the buttons and key above the bottom notice and below the header, however they wrap.
+  const notice = $("notice"), bar = $("bar");
   const fitNotice = () => document.documentElement.style.setProperty("--nh", notice.offsetHeight + "px");
-  window.addEventListener("resize", fitNotice);
+  const fitBar = () => document.documentElement.style.setProperty("--bh", bar.offsetHeight + "px");
+  window.addEventListener("resize", () => { fitNotice(); fitBar(); });
   fitNotice();
+  fitBar();
 
   let toastTimer = null;
   function toast(msg) {
@@ -783,7 +907,7 @@
 
   // Exposed for automated checks only.
   window.__dropoff = { map, DATA, setDestination, reportText, applyTime, setChosen: (t) => { chosen = t; applyTime(); },
-                       setDetail: (on) => { detail = on; applyMode(); } };
+                       setDetail: (on) => { detail = on; applyMode(); }, showArea, areaAt };
 })();
 </script>
 </body>

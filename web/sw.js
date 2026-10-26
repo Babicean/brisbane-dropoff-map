@@ -1,6 +1,6 @@
 // Network first for this site's own files, so drivers always get the latest data
 // when they have signal, and the last version they loaded when they don't.
-const CACHE = "dropoff-v2";
+const CACHE = "dropoff-v3";
 const SHELL = ["./", "index.html", "manifest.webmanifest", "icons/icon.svg", "icons/icon-192.png"];
 
 self.addEventListener("install", (e) => {

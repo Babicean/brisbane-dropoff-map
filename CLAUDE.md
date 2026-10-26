@@ -19,16 +19,17 @@ python pipeline/build.py                               # -> web/data/ (exits non
 python pipeline/summarise.py --out docs/data-summary.md
 python -m unittest discover tests
 python -m http.server -d web 8000
+python tools/check_map.py http://localhost:8000/ out/   # browser smoke test (needs Playwright)
 ```
 
 Pushing `web/` changes to `main` deploys. The monthly refresh workflow does fetch → build → commit → deploy on its own.
 
 ## Where things live
 
-- `config/scope.json` suburbs per version, `"live"` picks the published one. `config/layers.json` council layers. `config/cameras.json`, `config/corrections.json` moderated driver input.
+- `config/scope.json` suburbs per version, `"live"` picks the published one. `config/layers.json` council layers. `config/cameras.json`, `config/corrections.json` moderated driver input. `config/areas.json` area tabs (suburb grouping, map names), `config/landmarks.json` landmarks; built into `web/data/areas.geojson` by `areas_layer()` (D039).
 - `pipeline/rules.py` **every** red/green/review decision and fine amount. Don't scatter type checks elsewhere.
 - `pipeline/zones.py` signs → kerb zones (arrow convention, extents). `pipeline/hours.py` hours text → weekly schedules (`mask,start,end`, Monday = bit 0, minutes, Brisbane time). `pipeline/geo.py` local-metre geometry.
-- `web/index.html` the whole client (MapLibre 5.24.0 pinned, OpenFreeMap basemap, Photon search). Two views: **simple** (default: bright green + one faint "don't stop" red, D037) and **detail** (all rule colours), switched by `applyMode()`. Keep the simple view calm: new information goes in popups or the detail view first. `web/sw.js` network-first offline cache; bump `CACHE` if the shell changes.
+- `web/index.html` the whole client (MapLibre 5.24.0 pinned, OpenFreeMap basemap, Photon search). Two views: **simple** (default: bright green + one faint "don't stop" red, D037) and **detail** (all rule colours), switched by `applyMode()`. Keep the simple view calm: new information goes in popups or the detail view first. Area tabs in the header (lit tab = area at the map centre, `#area-id` link); suburb names and landmarks draw above the kerb lines, borders (off by default) below the green; an invisible `pin-space` symbol layer keeps labels out from under the camera pins (DOM markers). `web/sw.js` network-first offline cache; bump `CACHE` if the shell changes.
 
 ## Conventions
 
@@ -58,5 +59,5 @@ Pushing `web/` changes to `main` deploys. The monthly refresh workflow does fetc
 ## Don't
 
 - Don't present the map as authoritative. The bottom notice must say signs override it.
-- Don't add businesses or POIs to the basemap.
+- Don't add businesses or POIs to the basemap. Landmarks in `config/landmarks.json` are a short list of orientation points, not businesses.
 - Don't commit `data/raw/`.

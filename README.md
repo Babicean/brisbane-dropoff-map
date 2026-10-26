@@ -24,12 +24,14 @@ The default **simple view** answers one question: where can I stop right now?
 | **Bright green** (dots when zoomed out) | A 2-minute passenger drop-off is legal now: loading zones that allow passengers, passenger loading zones, No Parking zones |
 | **Faint red** | Don't stop: every rule in force (no stopping, yellow lines, bus/taxi/mail zones, accessible bays, commercial-only loading zones, clearways in force, and anything unclear). Gets stronger as you zoom in |
 | **Camera pin** | A street with a council parking camera; tap it to shade the street |
+| **Area tabs** | CBD · Valley · Spring Hill · Herston · New Farm (Newstead, Teneriffe and New Farm). Tap to jump there; the lit tab is the area you're looking at. Each area has its own link (`…/#valley`) |
+| **Names and landmarks** | Suburb names when zoomed out, plus Queen St Mall, Brunswick St Mall, James St, Howard Smith Wharves, Central Station, RBWH, Gasworks and the Powerhouse for bearings |
 | **Time chip** | Shows rules for now (Brisbane time); tap to check another day and time |
 | **Find a drop-off spot** | Search a venue, tap the map or use "Near me": the 3 nearest legal drop-off spots in force, with rough walking distance |
 | **Report** | Writes a message (camera, fine, wrong map, good spot) with the location for the drivers group |
 | **Tap any line** | Rule, street, hours, whether it's in force, fine amount, and whether it came from paint or signs |
 
-**Show all rule types** (switch in the key) brings back the full colour coding: strong red, purple dashed clearways, amber "unclear: check the signs", grey dashes for timed rules not in force, and blue shading on camera streets.
+**Show all rule types** (switch in the key) brings back the full colour coding: strong red, purple dashed clearways, amber "unclear: check the signs", grey dashes for timed rules not in force, and blue shading on camera streets. **Suburb borders** (also in the key, off by default) draws dashed lines between the areas and around the edge of the map's coverage.
 
 Also: follows the phone's dark mode, can be added to the home screen, and keeps working with the last-loaded data when there's no signal.
 
@@ -98,6 +100,10 @@ The arrow convention is checked on every build: consecutive matching signs on on
 
 [`config/cameras.json`](config/cameras.json) lists every publicly named fixed parking camera street. Council hasn't published its full list of 40+ sites; driver reports fill the gaps. Status is `confirmed` (exact position, with coordinates), `announced` (council or news named the street), `likely` (a credible source points to it without saying "camera" outright), `reported` (a driver report, not yet checked) or `unverified` (claimed somewhere with no source: kept for checking, not shown). See decision D038.
 
+### Areas and landmarks
+
+[`config/areas.json`](config/areas.json) groups the scope suburbs into the tabs (in tab order) and sets the names drawn on the map; [`config/landmarks.json`](config/landmarks.json) lists the landmarks. The build writes both into `web/data/areas.geojson`: an outline per area (which tab is lit), the kerb-line extent a tab zooms to, a spot for each suburb name (deep inside the suburb, clear of landmarks, camera pins and other names), the borders between areas (each drawn once; neighbouring suburbs share exact boundary points) and the landmarks. A suburb added to the scope but not to `areas.json` gets a tab of its own. See decision D039.
+
 ## Running it
 
 Needs Python 3.11+. No packages to install.
@@ -106,7 +112,7 @@ Needs Python 3.11+. No packages to install.
 python pipeline/fetch.py                               # live scope into data/raw/
 python pipeline/build.py                               # classify into web/data/
 python pipeline/summarise.py --out docs/data-summary.md
-python -m unittest discover tests                      # hours parser tests
+python -m unittest discover tests                      # hours parser and area helper tests
 python -m http.server -d web 8000                      # preview at http://localhost:8000
 ```
 
@@ -139,7 +145,7 @@ Never put number plates, names or fine numbers in these files: the repo is publi
 ## Repo layout
 
 ```
-config/          scope.json, layers.json, cameras.json, corrections.json
+config/          scope.json, layers.json, cameras.json, corrections.json, areas.json, landmarks.json
 pipeline/        fetch.py, build.py, summarise.py, rules.py, zones.py, hours.py, geo.py
 tests/           unit tests (python -m unittest discover tests)
 data/raw/        untouched council downloads (gitignored)
@@ -158,6 +164,7 @@ web/data/        processed GeoJSON the map loads (committed, so changes show up 
 - [x] **M4 Cameras:** announced streets, structure for reported/confirmed positions
 - [x] **M5 Reports:** share-to-group reports; moderated corrections and notes
 - [x] **v2:** Spring Hill and Herston; monthly automatic refresh
+- [x] **Areas:** area tabs with shareable links, suburb names, landmarks, optional suburb borders
 - [ ] **Corner rule:** draw the 10 m / 20 m no-stopping zones at intersections (needs council's traffic signal layer)
 - [ ] **Fine heatmap** once enough fine reports are collected
 - [ ] **Public holidays** for timed rules

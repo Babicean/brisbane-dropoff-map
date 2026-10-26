@@ -8,6 +8,7 @@ Reads data/raw/ (from fetch.py) and config/, writes web/data/:
     clearways.geojson  clearways with their hours
     points.geojson     signs we couldn't place on a street, and moderated notes
     cameras.geojson    parking camera streets and known camera positions
+    areas.geojson      area outlines for the tabs, suburb names, suburb borders, landmarks
     meta.json          data dates, counts and quality checks
 
 Features that only apply at certain times carry `sched` ("mask,start,end;...",
@@ -222,6 +223,190 @@ def camera_layer(chains, suburbs_geojson, live_suburbs):
     return feats, placed, missing
 
 
+# --- Areas and landmarks --------------------------------------------------------
+
+AREA_SIMPLIFY_M = 3      # area outlines only decide which tab is lit, so they can be rough
+BORDER_SIMPLIFY_M = 1.5
+
+# Screen sizes for keeping suburb names clear of other things (half width, half height, px).
+NAME_CHAR_PX, NAME_LINE_PX, NAME_WRAP_PX = 9.4, 17, 104   # bold capitals, 13 px, wrap at 8 em
+PIN_BOX_PX = (16, 16)        # camera pins are 30 px circles
+LANDMARK_BOX_PX = (55, 9)    # a landmark's dot and name (the map can put the name either side)
+# Metres per pixel at zoom 13.5 (MapLibre's tiles are 512 px), where the map gets busy;
+# zoomed out further, the map can nudge a name to one side of its spot to dodge a pin.
+# Names keep apart from each other at zoom 13, where the whole scope fits on a phone.
+PIN_M_PER_PX = LANDMARK_M_PER_PX = 6.0
+NAME_M_PER_PX = 8.5
+NAME_CLEAR_PX = 4
+EXTENT_TRIM = 0.02           # a tab frames the middle 96% of its area's kerbs, both ways
+
+
+def _xy_ring(ring, tolerance):
+    return simplify([to_xy(c[0], c[1]) for c in ring], tolerance)
+
+
+def _lonlat(pts):
+    return [list(to_lonlat(x, y)) for x, y in pts]
+
+
+def _name_box(text):
+    """Half width and height (px) of a suburb name as the map draws it, wrapped like MapLibre."""
+    lines, line = [], ""
+    for word in text.upper().split():
+        joined = f"{line} {word}".strip()
+        if line and len(joined) * NAME_CHAR_PX > NAME_WRAP_PX:
+            lines.append(line)
+            line = word
+        else:
+            line = joined
+    lines.append(line)
+    return max(len(s) for s in lines) * NAME_CHAR_PX / 2, len(lines) * NAME_LINE_PX / 2
+
+
+def _label_spot(ring, box, obstacles):
+    """Where a suburb's name fits best: the point deepest inside the suburb whose name box
+    stays clear of landmarks and camera pins. `obstacles` are (x, y, half width px,
+    half height px, metres per px). Coarse grid, then finer grids around the best point."""
+    edges = list(zip(ring, ring[1:]))
+    w, h = box
+
+    def score(x, y):
+        if not point_in_rings(x, y, [ring]):
+            return -1e9
+        clear = min((max(abs(ox - x) / m - (w + ow), abs(oy - y) / m - (h + oh))
+                     for ox, oy, ow, oh, m in obstacles), default=0)
+        if clear < NAME_CLEAR_PX:
+            return clear - 1e6  # only if nowhere is clear: then the least crowded spot
+        return min(point_segment_distance(x, y, ax, ay, bx, by) for (ax, ay), (bx, by) in edges)
+
+    xs, ys = [p[0] for p in ring], [p[1] for p in ring]
+    best_s, best_p = -1e10, ((min(xs) + max(xs)) / 2, (min(ys) + max(ys)) / 2)
+    half = max(max(xs) - min(xs), max(ys) - min(ys)) / 2
+    for _ in range(3):
+        step, (cx, cy) = half / 12, best_p
+        for i in range(-12, 13):
+            for j in range(-12, 13):
+                s = score(cx + i * step, cy + j * step)
+                if s > best_s:
+                    best_s, best_p = s, (cx + i * step, cy + j * step)
+        half = 2 * step
+    return best_p
+
+
+def _stitch(edges):
+    """Join undirected edges (pairs of points) into as few polylines as possible."""
+    adj = {}
+    for a, b in edges:
+        adj.setdefault(a, []).append(b)
+        adj.setdefault(b, []).append(a)
+    used, lines = set(), []
+
+    def walk(start, nxt):
+        line, prev, cur = [start, nxt], start, nxt
+        used.add(frozenset((start, nxt)))
+        while len(adj[cur]) == 2:
+            follow = adj[cur][1] if adj[cur][0] == prev else adj[cur][0]
+            if frozenset((cur, follow)) in used:
+                break
+            used.add(frozenset((cur, follow)))
+            line.append(follow)
+            prev, cur = cur, follow
+        return line
+
+    # Start at ends and junctions first, then whatever is left is a closed loop.
+    for pass_loops in (False, True):
+        for node, nbrs in adj.items():
+            if pass_loops or len(nbrs) != 2:
+                for nb in nbrs:
+                    if frozenset((node, nb)) not in used:
+                        lines.append(walk(node, nb))
+    return lines
+
+
+def areas_layer(suburbs_geojson, live_suburbs, pins, streets):
+    """Areas for the tabs at the top of the map, a name label per suburb, suburb borders
+    (each drawn once, none inside an area) and landmarks, all in one file. `pins` are the
+    camera pin positions, which suburb names keep clear of; `streets` are the kerb lines,
+    whose extent in each area is what a tab zooms to (a suburb's own outline runs out to
+    the middle of the river)."""
+    cfg = json.loads((CONFIG / "areas.json").read_text(encoding="utf-8"))
+    marks = json.loads((CONFIG / "landmarks.json").read_text(encoding="utf-8"))["landmarks"]
+    outer = {f["properties"]["SUBURB_NAME"]: polygon_rings(f["geometry"])
+             for f in suburbs_geojson["features"] if f["properties"]["SUBURB_NAME"] in live_suburbs}
+
+    groups, grouped = [], set()
+    for area in cfg["areas"]:
+        subs = [s for s in area["suburbs"] if s in outer]
+        if subs:
+            groups.append(dict(area, suburbs=subs))
+            grouped.update(subs)
+    for s in sorted(set(outer) - grouped):  # added to scope but not to areas.json: its own tab
+        groups.append({"id": "-".join(s.lower().split()), "name": s.title(), "title": s.title(), "suburbs": [s]})
+    area_of = {s: g["id"] for g in groups for s in g["suburbs"]}
+
+    # Which area each kerb line is in (by its first point), for the extent a tab zooms to.
+    extent = {g["id"]: [] for g in groups}
+    for f in streets:
+        first = line_parts(f["geometry"])[0][0]
+        for s, polys in outer.items():
+            if any(point_in_rings(first[0], first[1], poly) for poly in polys):
+                extent[area_of[s]].extend(c for part in line_parts(f["geometry"]) for c in part)
+                break
+
+    feats = []
+    for g in groups:
+        polys, outline = [], []
+        for s in g["suburbs"]:
+            for poly in outer[s]:
+                polys.append([_lonlat(_xy_ring(poly[0], AREA_SIMPLIFY_M))])
+                outline.extend(poly[0])
+        pts = extent[g["id"]] or outline
+        lons, lats = sorted(p[0] for p in pts), sorted(p[1] for p in pts)
+        lo, hi = int(len(pts) * EXTENT_TRIM), int(len(pts) * (1 - EXTENT_TRIM)) - 1
+        bbox = [round(lons[lo], 5), round(lats[lo], 5), round(lons[hi], 5), round(lats[hi], 5)]
+        feats.append(feature("MultiPolygon", polys, kind="area", id=g["id"], name=g["name"],
+                             title=g.get("title") or g["name"], bbox=bbox))
+
+    labels = cfg.get("labels", {})
+    obstacles = ([(*to_xy(m["lon"], m["lat"]), *LANDMARK_BOX_PX, LANDMARK_M_PER_PX) for m in marks if m["suburb"] in outer]
+                 + [(*to_xy(lon, lat), *PIN_BOX_PX, PIN_M_PER_PX) for lon, lat in pins])
+    for s in [s for g in groups for s in g["suburbs"]]:  # tab order; each name keeps clear of the ones before
+        conf = labels.get(s, {})
+        text = conf.get("text") or s.title()
+        box = _name_box(text)
+        if conf.get("at"):
+            at = conf["at"]
+        else:
+            biggest = max(outer[s], key=lambda poly: len(poly[0]))
+            at = list(to_lonlat(*_label_spot(_xy_ring(biggest[0], 5), box, obstacles)))
+        obstacles.append((*to_xy(*at), *box, NAME_M_PER_PX))
+        feats.append(feature("Point", at, kind="label", text=text, suburb=s.title(), area=area_of[s]))
+
+    # Borders: neighbouring suburbs share exact vertices, so an edge on two suburbs is a
+    # shared border. Drop it inside an area, draw it once between areas.
+    owners = {}
+    for s, polys in outer.items():
+        for poly in polys:
+            for ring in poly:
+                for a, b in zip(ring, ring[1:]):
+                    ka, kb = (round(a[0], 7), round(a[1], 7)), (round(b[0], 7), round(b[1], 7))
+                    if ka != kb:
+                        owners.setdefault(frozenset((ka, kb)), set()).add(s)
+    keep = [tuple(e) for e, subs in owners.items() if len({area_of[s] for s in subs}) == len(subs)]
+    lines = [_lonlat(simplify([to_xy(*p) for p in line], BORDER_SIMPLIFY_M)) for line in _stitch(keep)]
+    feats.append(feature("MultiLineString", lines, kind="border"))
+
+    misplaced = []
+    for m in marks:
+        if m["suburb"] not in outer:
+            continue  # outside the live scope: kept for later
+        if not any(point_in_rings(m["lon"], m["lat"], poly) for poly in outer[m["suburb"]]):
+            misplaced.append(m["name"])
+        feats.append(feature("Point", [m["lon"], m["lat"]], kind="landmark", name=m["name"],
+                             area=area_of[m["suburb"]]))
+    return feats, {g["id"]: g["suburbs"] for g in groups}, misplaced
+
+
 # --- Corrections --------------------------------------------------------------
 
 def apply_corrections(layers: dict, points: list):
@@ -417,6 +602,9 @@ def main() -> int:
     green, conflicted, conflict_stats = resolve_green_conflicts(green, red + clearways)
     review.extend(conflicted)
     cameras, cameras_placed, cameras_missing = camera_layer(chains, suburbs_geojson, set(manifest["suburbs"]))
+    pins = [f["geometry"]["coordinates"] for f in cameras if f["geometry"]["type"] == "Point"]
+    areas, area_groups, landmarks_misplaced = areas_layer(suburbs_geojson, set(manifest["suburbs"]), pins,
+                                                          red + green + review + clearways)
     layers = {"red": red, "green": green, "review": review, "clearways": clearways}
     hidden = apply_corrections(layers, points)
 
@@ -426,7 +614,7 @@ def main() -> int:
                   "Not writing: the council download looks incomplete.", file=sys.stderr)
             return 1
 
-    outputs = {**layers, "points": points, "cameras": cameras}
+    outputs = {**layers, "points": points, "cameras": cameras, "areas": areas}
     for name, feats in outputs.items():
         (OUT / f"{name}.geojson").write_text(
             json.dumps({"type": "FeatureCollection", "features": feats}, ensure_ascii=False, separators=(",", ":")),
@@ -437,6 +625,7 @@ def main() -> int:
         "fetched_at": manifest["fetched_at"],
         "scope": manifest["scope"],
         "suburbs": [s.title() for s in manifest["suburbs"]],
+        "areas": area_groups,
         "council_data_edited": {k: v["data_last_edit"] for k, v in manifest["layers"].items()},
         "counts": {k: len(v) for k, v in outputs.items()},
         "checks": {
@@ -447,6 +636,7 @@ def main() -> int:
             "clearway_hours": dict(clearway_parse),
             "cameras_on_map": cameras_placed,
             "cameras_street_not_found": cameras_missing,
+            "landmarks_outside_their_suburb": landmarks_misplaced,
             "features_hidden_by_corrections": hidden,
             "green_vs_red": conflict_stats,
             "painted_lines_skipped": dict(skipped),

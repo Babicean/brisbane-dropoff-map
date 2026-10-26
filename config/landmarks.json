@@ -1,0 +1,13 @@
+{
+  "_comment": "Key places labelled on the map so drivers can get their bearings at a glance. Keep it short: orientation points, not businesses. Positions from OpenStreetMap (Photon search), Oct 2026. suburb decides which scope version shows it (the build warns if the point isn't inside that suburb). See decision D039.",
+  "landmarks": [
+    {"name": "Queen St Mall", "suburb": "BRISBANE CITY", "lon": 153.02523, "lat": -27.46966},
+    {"name": "Central Station", "suburb": "BRISBANE CITY", "lon": 153.02610, "lat": -27.46591},
+    {"name": "Howard Smith Wharves", "suburb": "FORTITUDE VALLEY", "lon": 153.03824, "lat": -27.46313},
+    {"name": "Brunswick St Mall", "suburb": "FORTITUDE VALLEY", "lon": 153.03412, "lat": -27.45778},
+    {"name": "James St", "suburb": "FORTITUDE VALLEY", "lon": 153.03846, "lat": -27.45562},
+    {"name": "RBWH", "suburb": "HERSTON", "lon": 153.02681, "lat": -27.44773},
+    {"name": "Gasworks", "suburb": "NEWSTEAD", "lon": 153.04435, "lat": -27.45082},
+    {"name": "Powerhouse", "suburb": "NEW FARM", "lon": 153.05439, "lat": -27.46908}
+  ]
+}

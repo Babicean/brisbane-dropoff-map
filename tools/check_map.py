@@ -5,9 +5,10 @@
     python tools/check_map.py http://localhost:8765/ out/
 
 Loads the page at phone size, checks every data layer loads with no console
-errors, flips the time between Monday 8am and Sunday 3am, runs the drop-off
-finder near The Tivoli, builds a report message, opens a popup, and saves
-screenshots (light and dark) into the output folder.
+errors, taps an area tab and the suburb borders switch, flips the time between
+Monday 8am and Sunday 3am, runs the drop-off finder near The Tivoli, builds a
+report message, opens a popup, and saves screenshots (light and dark) into the
+output folder.
 """
 import asyncio, sys
 from pathlib import Path
@@ -29,6 +30,21 @@ async def main():
         cams = await pg.evaluate("() => document.querySelectorAll('.cam-pin').length")
         print("counts", counts, "camera pins", cams)
         await pg.screenshot(path=f"{OUT}/a_default.png")
+        # area tabs: tap Valley, the map should frame it and light its tab
+        tabs = await pg.evaluate("() => [...document.querySelectorAll('#areas button')].map(b => b.textContent)")
+        await pg.click("#areas button[data-area='valley']")
+        await pg.wait_for_timeout(2000)
+        area = await pg.evaluate("""() => { const m = window.__dropoff.map, c = m.getCenter();
+            const names = (ids) => m.queryRenderedFeatures({layers: ids}).map(f => f.properties.text || f.properties.name);
+            return {tabs_lit: [...document.querySelectorAll('#areas [aria-current="true"]')].map(b => b.textContent),
+                    centre_in: window.__dropoff.areaAt(c.lng, c.lat), link: location.hash, zoom: +m.getZoom().toFixed(2),
+                    suburb_names: names(['area-labels']), landmarks: names(['landmarks'])}; }""")
+        print("tabs", tabs, "after tapping Valley", area)
+        await pg.click("#borders-toggle")
+        await pg.wait_for_timeout(800)
+        print("suburb borders:", await pg.evaluate("() => window.__dropoff.map.getLayoutProperty('suburb-borders', 'visibility')"))
+        await pg.screenshot(path=f"{OUT}/a2_valley_borders.png")
+        await pg.click("#borders-toggle")
         # zoom into the Valley to see sign zones
         await pg.evaluate("() => window.__dropoff.map.jumpTo({center:[153.0345,-27.4565], zoom:16.6})")
         await pg.wait_for_timeout(2500)

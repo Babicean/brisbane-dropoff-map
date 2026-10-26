@@ -210,3 +210,19 @@ A separate review checked every rule against the Queensland Road Rules Regulatio
 - **New statuses:** `likely` (shown, labelled "Likely parking camera on this street", with its source in the popup) and `unverified` (not shown).
 - **Upgrade path:** a photo of the "parking enforcement camera in use" sign or the camera itself, with a location, makes any of these `confirmed` with an exact pin.
 - **Change:** `config/cameras.json`, `camera_layer()` in `pipeline/build.py`.
+
+---
+
+## Areas and landmarks · 27 Oct 2026
+
+### D039 · Area tabs, suburb names and landmarks; borders optional
+- **Asked (Brendon):** split the map into 4–5 areas (CBD, Fortitude Valley, Spring Hill, Herston, Teneriffe/New Farm), maybe with a border between suburbs, and mark key places (Queen St Mall, Howard Smith Wharves, James St, the Valley's main street) so drivers get their bearings at a glance. Clean and minimal; borders optional if they're messy.
+- **Decided:**
+  - **Tabs** under the title: CBD · Valley · Spring Hill · Herston · New Farm. A tab zooms to its area, framing the middle 96% of the area's kerb lines (the suburb outline itself runs to the middle of the river, which framed too much water), at zoom 14.8 at most so the names still show. The tab for the area in the middle of the map is lit, so you always know which area you're looking at.
+  - **Each area has a link:** the address ends in `#cbd`, `#valley`, `#spring-hill`, `#herston` or `#new-farm` and follows the map, so a link copied from the phone opens on that area.
+  - **The "New Farm" tab covers Newstead, Teneriffe and New Farm.** Newstead has been in scope since v1 and sits beside Teneriffe. Short tab names keep all five on one row of a phone (they scroll sideways on very narrow screens). **Assumption:** drivers know "the Valley" and "CBD".
+  - **Suburb names** drawn in bold capitals (CBD, FORTITUDE VALLEY, SPRING HILL, HERSTON, NEWSTEAD, TENERIFFE, NEW FARM) until zoom 15, replacing the basemap's faint labels for those suburbs (and its "Brisbane" on the CBD). Neighbouring suburbs outside the scope keep the basemap's labels. The build places each name deep inside its suburb and clear of landmarks, camera pins and the other names; a name can still slide aside or hide when zoomed far out.
+  - **Landmarks:** Queen St Mall, Howard Smith Wharves, James St and Brunswick St Mall (**Assumption:** "the main Fortitude Valley street" means Brunswick St Mall), plus one anchor for areas that had none: Central Station (CBD), RBWH (Herston), Gasworks (Newstead), Powerhouse (New Farm). Spring Hill has none yet. Positions from OpenStreetMap via Photon; the build warns if one isn't inside its suburb. Each is a small ring with its name, shown from zoom 12.8; the name moves aside, or ring and name hide together, rather than sit under a camera pin.
+  - **Suburb borders:** a "Suburb borders" switch in the key, **off by default**, because dashed lines over the kerb colours get busy. Borders inside the New Farm area aren't drawn; the outer edge shows where the map's data stops.
+  - Names and landmarks draw above the kerb lines so they stay readable (a label can cover a few metres of line; tapping still works). Borders draw under the green.
+- **Change:** `config/areas.json` (tabs, grouping, map names; `"at": [lon, lat]` pins a name's position), `config/landmarks.json` (add, move or remove a landmark), `areas_layer()` in `pipeline/build.py`, the Areas section of `web/index.html`.

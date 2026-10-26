@@ -1,5 +1,5 @@
 {
- "built_at": "2026-10-26T14:50:33+00:00",
+ "built_at": "2026-10-26T15:30:40+00:00",
  "fetched_at": "2026-10-26T13:41:33+00:00",
  "scope": "v2",
  "suburbs": [
@@ -11,6 +11,25 @@
   "Spring Hill",
   "Herston"
  ],
+ "areas": {
+  "cbd": [
+   "BRISBANE CITY"
+  ],
+  "valley": [
+   "FORTITUDE VALLEY"
+  ],
+  "spring-hill": [
+   "SPRING HILL"
+  ],
+  "herston": [
+   "HERSTON"
+  ],
+  "new-farm": [
+   "NEWSTEAD",
+   "TENERIFFE",
+   "NEW FARM"
+  ]
+ },
  "council_data_edited": {
   "lines": "2026-10-19",
   "signs": "2026-10-19",
@@ -23,7 +42,8 @@
   "review": 219,
   "clearways": 218,
   "points": 54,
-  "cameras": 58
+  "cameras": 58,
+  "areas": 21
  },
  "checks": {
   "arrow_convention": {
@@ -45,6 +65,7 @@
   },
   "cameras_on_map": 8,
   "cameras_street_not_found": [],
+  "landmarks_outside_their_suburb": [],
   "features_hidden_by_corrections": 0,
   "green_vs_red": {
    "painted green moved to review: red along most of it": 11,
