@@ -225,12 +225,13 @@
     </ul>
 
     <h3>Parking cameras</h3>
-    <p class="small">Blue-shaded streets have a council parking camera somewhere along them, as announced by council or reported in the news. A white camera pin means the exact position isn't confirmed; a filled blue pin is a confirmed position. Cameras run 24/7 and fine any stop in no stopping, bus, taxi and loading zones, clearways and on yellow lines.</p>
+    <p class="small">Blue-shaded streets have a council parking camera somewhere along them, as announced by council or reported in the news. A white camera pin means the exact position isn't confirmed; a filled blue pin is a confirmed position. Cameras run 24/7 and catch illegal stops: no stopping zones and yellow lines, bus and taxi zones, clearways, and misuse of loading zones (over time, or commercial-only).</p>
 
     <h3>How it's built</h3>
     <ul class="small">
       <li>Red and green lines come from council's painted line records and its sign records. Where there's only a sign, the map runs the rule along the kerb in the direction of the sign's arrow, to the next sign or the corner.</li>
-      <li>Timed rules follow the time at the top of the screen. Public holidays aren't accounted for.</li>
+      <li>Timed rules follow the time at the top of the screen. Public holidays aren't accounted for: on a holiday, weekday-only rules may not apply and "all other times" rules may. Check the sign.</li>
+      <li>Green is only shown when the data is clear. Loading zones with unclear hours, or that conflict with another record, show amber instead.</li>
       <li>Not drawn: the corner rule, driveways, roads council doesn't manage (hospital campuses like RBWH, private car parks), and anything missing from council's data.</li>
     </ul>
 
@@ -479,9 +480,20 @@
       if (d <= 400) spots.push({ d, pt, f });
     }
     spots.sort((a, b) => a.d - b.d);
+    // Belt and braces: never suggest a spot sitting on red or a clearway in force.
+    const nearRed = [];
+    for (const name of ["red", "clearways"]) {
+      for (const f of DATA[name].features) {
+        if (f.properties.on === false) continue;
+        const c = f.geometry.coordinates[0];
+        if (Array.isArray(c) && Math.hypot(...xy(c[0], c[1]).map((v, i) => v - [px, py][i])) < 700) nearRed.push(f);
+      }
+    }
+    const onRed = (pt) => { const [qx, qy] = xy(pt[0], pt[1]); return nearRed.some(f => distToFeature(qx, qy, f)[0] <= 4); };
     const picked = [];
     for (const s of spots) {  // skip near-duplicates on the same bit of kerb
       const [sx, sy] = xy(s.pt[0], s.pt[1]);
+      if (onRed(s.pt)) continue;
       if (picked.every(p => { const [qx, qy] = xy(p.pt[0], p.pt[1]); return Math.hypot(sx - qx, sy - qy) > 25; })) picked.push(s);
       if (picked.length === 3) break;
     }

@@ -205,33 +205,65 @@ def group_poles(signs: list[Sign]) -> dict[tuple[int, int], list[Pole]]:
 
 
 def sign_schedule(sign: Sign, pole: Pole):
-    """Return (encoded schedule or None for always, hours text, unclear flag)."""
+    """Return (encoded schedule or None for always, hours text, unclear, approximate).
+
+    unclear: a timed rule whose hours we couldn't read (drawn always-on if red).
+    approximate: hours involved a guess (school days, days borrowed from another
+    panel). Neither may produce green: build.py sends those to review.
+    """
     text = norm(sign.props.get("PARKINGRESTRICTIONDAYSANDTIMES"))
-    parsed = hours.parse(text) if text else None
+    parsed, approximate = hours.parse_detail(text) if text else (None, False)
     if parsed is None:
         if "Specified Times" in sign.kind or text:
-            return None, text, True  # timed rule we can't read: show it always, flag it
-        return None, "", False  # 'Any Time' style rule
+            return None, text, True, False  # timed rule we can't read: show it always, flag it
+        return None, "", False, False  # 'Any Time' style rule
     if parsed == hours.ALWAYS:
-        return None, text, False
+        return None, text, False, False
     if parsed == hours.OTHER_TIMES:
-        others = []
+        # Only panels on this pole that cover the same stretch of kerb count: same
+        # arrow, or a two-way arrow on either. The next zone's sign often shares the pole.
+        others, approx = [], False
         for o in pole.signs:
             if o is sign:
                 continue
+            if not (o.direction == sign.direction or "Bi-Directional" in (o.direction, sign.direction)):
+                continue
             t = norm(o.props.get("PARKINGRESTRICTIONDAYSANDTIMES"))
-            op = hours.parse(t) if t else None
+            op, oa = hours.parse_detail(t) if t else (None, False)
             if isinstance(op, list):
                 others.append(op)
+                approx = approx or oa
         if not others:
-            return None, "All other times (see sign)", True
+            return None, "All other times (see sign)", True, False
         sched = hours.complement(others)
-        return hours.encode(sched), "Outside the other times on this sign", False
-    return hours.encode(parsed), text, False
+        if not sched:
+            return None, "All other times (see sign)", True, False
+        return hours.encode(sched), "Outside the other times on this sign", False, approx
+    return hours.encode(parsed), text, False, approximate
+
+
+GREEN_UNCLOSED_MAX_M = 25   # a green rule with no matching end sign stops after this
+CORNER_CLEAR_M = 16         # ...and stays this far from the intersection centre (s170: 10 m from the kerb line)
+
+
+def _closes(pole: Pole, sign: Sign, towards: int, convention: int) -> bool:
+    """Does `pole` hold a sign of the same type pointing back towards `sign` (or both ways)?"""
+    for o in pole.signs:
+        if o.kind != sign.kind:
+            continue
+        dirs = arrow_dirs(o, convention)
+        if -towards in dirs:
+            return True
+    return False
 
 
 def build_zones(signs: list[Sign], chains: list[Chain], convention: int) -> list[dict]:
-    """Return raw zones: dicts with chain, side, s0, s1, offset and rule details."""
+    """Return raw zones: dicts with chain, side, s0, s1, offset and rule details.
+
+    Red rules run to the next sign or the corner (over-reaching is the safe side).
+    Green rules only run all the way when a matching sign closes the zone; otherwise
+    they stop after 25 m, keep clear of the corner, and the rest becomes review.
+    """
     zones = []
     for (ci, side), poles in group_poles(signs).items():
         length = chains[ci].poly.length
@@ -240,28 +272,50 @@ def build_zones(signs: list[Sign], chains: list[Chain], convention: int) -> list
                 if not sign.rule:
                     continue
                 layer, label, fine = sign.rule
-                sched, hours_text, unclear = sign_schedule(sign, pole)
+                sched, hours_text, unclear, approximate = sign_schedule(sign, pole)
+                base = {
+                    "chain": ci, "side": side,
+                    "offset": side * max(pole.offset - KERB_INSET_M, 2.5),
+                    "layer": layer, "label": label, "fine": fine,
+                    "sched": sched, "hours": hours_text, "unclear": unclear, "approximate": approximate,
+                    "open": False, "street": chains[ci].street.title(),
+                }
                 for d in arrow_dirs(sign, convention):
-                    if d > 0:
-                        end = poles[k + 1].station if k + 1 < len(poles) else length - BLOCK_END_TRIM_M
-                        s0, s1 = pole.station, end
+                    nbr = k + d
+                    has_nbr = 0 <= nbr < len(poles)
+                    if has_nbr:
+                        far = poles[nbr].station
                     else:
-                        start = poles[k - 1].station if k > 0 else BLOCK_END_TRIM_M
-                        s0, s1 = start, pole.station
-                    open_ended = False
-                    if s1 - s0 > MAX_ZONE_M:
-                        open_ended = True
-                        s0, s1 = (pole.station, pole.station + MAX_ZONE_M) if d > 0 else (pole.station - MAX_ZONE_M, pole.station)
-                    if s1 - s0 < 1:
-                        continue
-                    zones.append({
-                        "chain": ci, "side": side, "s0": s0, "s1": s1,
-                        "offset": side * max(pole.offset - KERB_INSET_M, 2.5),
-                        "layer": layer, "label": label, "fine": fine,
-                        "sched": sched, "hours": hours_text, "unclear": unclear,
-                        "open": open_ended,
-                        "street": chains[ci].street.title(),
-                    })
+                        far = length - BLOCK_END_TRIM_M if d > 0 else BLOCK_END_TRIM_M
+                    pieces = []  # (s0, s1, layer, open)
+                    if layer == "green":
+                        closed = has_nbr and _closes(poles[nbr], sign, d, convention)
+                        if not closed:
+                            corner = length - CORNER_CLEAR_M if d > 0 else CORNER_CLEAR_M
+                            limit = pole.station + d * GREEN_UNCLOSED_MAX_M
+                            stop = min(far, limit, corner) if d > 0 else max(far, limit, corner)
+                            if d * (stop - pole.station) < 0:
+                                stop = pole.station  # sign already inside the corner area: no green
+                            pieces.append((pole.station, stop, "green", True))
+                            pieces.append((stop, far, "review", True))
+                        else:
+                            pieces.append((pole.station, far, "green", False))
+                    else:
+                        stop = far
+                        open_ended = False
+                        if abs(far - pole.station) > MAX_ZONE_M:
+                            stop = pole.station + d * MAX_ZONE_M
+                            open_ended = True
+                        pieces.append((pole.station, stop, layer, open_ended))
+                    for a, b, lyr, open_ended in pieces:
+                        if d * (b - a) < 1:
+                            continue  # empty, or would point back past the sign
+                        s0, s1 = sorted((a, b))
+                        z = dict(base, s0=s0, s1=s1, layer=lyr, open=open_ended)
+                        if lyr == "review" and layer == "green":
+                            z["label"] = label + ": zone end not confirmed, check the signs"
+                            z["fine"] = None
+                        zones.append(z)
     return merge_zones(zones)
 
 
@@ -269,7 +323,7 @@ def merge_zones(zones: list[dict]) -> list[dict]:
     """Repeater signs make overlapping copies of the same rule: union them."""
     groups = defaultdict(list)
     for z in zones:
-        key = (z["chain"], z["side"], z["layer"], z["label"], z["sched"], z["unclear"])
+        key = (z["chain"], z["side"], z["layer"], z["label"], z["sched"], z["unclear"], z["approximate"])
         groups[key].append(z)
     merged = []
     for items in groups.values():

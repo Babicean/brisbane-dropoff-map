@@ -61,7 +61,7 @@ SIGN_RULES = {
     "Loading Zone": ("green", "Loading zone: passengers 2 min", "loading_overstay"),
     "No Parking Any Time": ("green", "No Parking: 2 min drop-off, stay within 3 m of the car", "no_parking_overstay"),
     "No Parking Specified Times": ("green", "No Parking: 2 min drop-off, stay within 3 m of the car", "no_parking_overstay"),
-    "Mail Zone or Australia Post Mail Box": ("review", "Mail zone or post box: check the sign", None),
+    "Mail Zone or Australia Post Mail Box": ("red", "Mail zone", "mail_zone"),
 }
 SIGN_PREFIX_RULES = [
     ("No Stopping", ("red", "No stopping", "no_stopping")),
@@ -75,6 +75,12 @@ AREA_SIGN_CATEGORIES = {"Traffic Parking Control Areas"}
 AREA_SIGN_TYPES = {"BRISBANE CENTRAL TRAFFIC AREA"}
 
 
+# Sign categories that restrict stopping. A type in one of these we don't
+# recognise goes to review rather than being silently left off the map.
+RESTRICTIVE_CATEGORIES = {"No Stopping", "Loading Zones", "Bus Taxi & Special Vehicle Zones",
+                          "No Parking", "Accessible Parking"}
+
+
 def sign_rule(kind: str, category: str):
     """Return (layer, label, fine_key) for a sign, or None when it isn't drawn."""
     if category == CLEARWAY_SIGN_CATEGORY:
@@ -84,6 +90,8 @@ def sign_rule(kind: str, category: str):
     for prefix, rule in SIGN_PREFIX_RULES:
         if kind.startswith(prefix):
             return rule
+    if category in RESTRICTIVE_CATEGORIES:
+        return ("review", f"{kind or 'Unrecognised sign'}: check the sign", None)
     return None
 
 

@@ -1,5 +1,5 @@
 {
- "built_at": "2026-10-26T13:41:50+00:00",
+ "built_at": "2026-10-26T14:16:16+00:00",
  "fetched_at": "2026-10-26T13:41:33+00:00",
  "scope": "v2",
  "suburbs": [
@@ -18,9 +18,9 @@
   "roads": "2022-09-04"
  },
  "counts": {
-  "red": 3777,
-  "green": 391,
-  "review": 124,
+  "red": 3771,
+  "green": 307,
+  "review": 219,
   "clearways": 218,
   "points": 54,
   "cameras": 56
@@ -34,17 +34,25 @@
   "signs_placed": 7470,
   "signs_not_placed": 72,
   "sign_zone_pieces": {
-   "red": 1107,
-   "green": 148,
-   "review": 5
+   "red": 1114,
+   "green": 126,
+   "review": 37
   },
   "clearway_hours": {
    "always": 67,
-   "timed": 151
+   "timed": 150,
+   "unreadable": 1
   },
   "cameras_on_map": 7,
   "cameras_street_not_found": [],
   "features_hidden_by_corrections": 0,
+  "green_vs_red": {
+   "painted green moved to review: red along most of it": 11,
+   "green hours trimmed by timed red": 4,
+   "green removed: red at all its times": 2,
+   "sign green cut back under always-on red": 13,
+   "sign green removed: under always-on red": 12
+  },
   "painted_lines_skipped": {
    "parking bay or lane edge": 1586,
    "removed from road": 173

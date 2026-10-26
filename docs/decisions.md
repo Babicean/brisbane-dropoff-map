@@ -143,3 +143,39 @@ Format: what was decided, why, and how to change it.
 ### D030 · Signs that can't be placed on a street
 - **Decided:** signs more than 35 m from their own street (18 m from any street), mostly in car parks and hospital or school grounds, are shown as coloured dots rather than dropped.
 - **Change:** `SNAP_*` constants in `pipeline/zones.py`.
+
+---
+
+## Independent review fixes · 27 Oct 2026
+
+A separate review checked every rule against the Queensland Road Rules Regulation (reprint current 26 Jun 2026) and council's pages: no rule was wrong (loading zones s179(1)(d)(ii)/(2B), No Parking s168, taxi zones s182 taxis only, bus s183, mail s186, works s181, accessible s203; no extra rights for booked hire). It found ways the code could still show green where a driver can't stop. Fixed as follows.
+
+### D031 · Green is never shown on a guess about hours
+- **Decided:** a green rule whose hours are unreadable, "ALL OTHER TIMES" with no partner panel, school days, or days borrowed from another panel on the sign goes to review (amber) instead. Red rules keep using the best reading (over-covering is the safe side).
+- **Change:** `parse_detail()` in `hours.py`; `sign_schedule()` in `zones.py`; `build.py`.
+
+### D032 · Hours parser fixes
+- **Decided:** day lists add up ("MON-FRI & SUN", "TUE THURS FRI"); "ALL DAY SUNDAY" is a full day; full day names are recognised; a lone letter ("… 7PM M") or other unknown word makes the text unreadable rather than guessing Monday; "M-SAT" is Monday–Saturday; "TOW AWAY"/"CLEARWAY"/"REPEATER" wording is ignored. Days given with no times ("SUN:-") are unreadable. Tests added for each.
+
+### D033 · Green zones need a closing sign
+- **Decided:** a sign-based green zone only runs all the way to the next pole if that pole has a sign of the same type pointing back. Otherwise it stops after 25 m and at least 16 m from the intersection centre (s170 corner rule), and the rest is amber "zone end not confirmed". Red zones still run to the next sign or the corner.
+- **Change:** `GREEN_UNCLOSED_MAX_M`, `CORNER_CLEAR_M` in `zones.py`.
+
+### D034 · Green never sits under red
+- **Decided:** after everything is built, each green is checked against red lines and clearways on the same kerb (within 3.5 m, alongside rather than just touching at the ends):
+  - a timed red covering 30%+ of a green takes its hours out of the green's;
+  - a painted green with always-on red along more than half of it goes to review ("conflicting records"); smaller overlaps are left alone, because council's painted records overlap their neighbours by 3–4 m at the ends;
+  - an inferred (sign-based) green is cut back wherever always-on red runs alongside.
+- The drop-off finder also skips any spot within 4 m of red or a clearway in force at the selected time.
+- **Change:** `resolve_green_conflicts()` in `build.py`; `setDestination()` in `web/index.html`.
+
+### D035 · Other review fixes
+- "ALL OTHER TIMES" uses only panels on the same pole pointing the same way (or both ways).
+- A painted loading zone takes its type only from a loading zone sign on the same street and same side.
+- Signs we can't place on a street that are green but have set hours show amber (their hours can't be shown on the map).
+- Unrecognised sign types in restrictive categories (no stopping, loading, bus/taxi, no parking, accessible) go to review instead of being dropped. "Mail Zone or Australia Post Mail Box" signs are red (council files them under No Stopping; s186 has no passenger exception).
+- Camera wording now says cameras catch illegal stops and misuse of loading zones, not any stop in a loading zone.
+
+### D036 · Not changed (yet)
+- **Public holidays** (s318: day-specific panels may not apply): noted in the time picker and Info sheet; no holiday calendar yet.
+- **Motorcycle parking** may allow passenger drop-off (s202). Left undrawn until checked; it would only add green.

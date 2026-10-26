@@ -22,16 +22,19 @@ OTHER_TIMES = "other_times"
 
 DAYS = ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"]
 ALL_DAYS = 0b1111111
-DAY_ALIASES = {"M": "MON", "F": "FRI", "TUES": "TUE", "THUR": "THU", "THURS": "THU", "WEDS": "WED"}
+WEEKDAYS = 0b0011111
 
-_DAY = r"(?:MON|TUES?|WEDS?|THU(?:RS?)?|FRI|SAT|SUN|M|F)"
-DAY_RE = re.compile(rf"\b(DAILY|WEEKDAYS|WEEKENDS?|{_DAY}(?:\s*-\s*{_DAY})?)\b")
+# Single letters ('M', 'F') are only trusted in the pair 'M-F': a lone trailing 'M'
+# in council text is usually a truncated word, not "Monday".
+_DAY = (r"(?:MON(?:DAY)?|TUE(?:S(?:DAY)?)?|WED(?:S|NESDAY)?|THU(?:R(?:S(?:DAY)?)?)?|"
+        r"FRI(?:DAY)?|SAT(?:URDAY)?|SUN(?:DAY)?)")
+DAY_RE = re.compile(rf"\b(DAILY|WEEKDAYS|WEEKENDS?|M\s*-\s*(?:F|{_DAY})|{_DAY}(?:\s*-\s*(?:F\b|{_DAY}))?)\b")
 TIME = r"(?:MIDNIGHT|12\s*NOON|NOON|\d{1,2}(?:[:.]\d{2})?\s*(?:AM|PM)?)"
 RANGE_RE = re.compile(rf"({TIME})\s*(?:-|TO)\s*({TIME})")
+SCHOOL_RE = re.compile(r"SCHOOL\s*DAYS?")
 
 
 def _day_index(token: str) -> int:
-    token = DAY_ALIASES.get(token, token)
     return DAYS.index(token[:3])
 
 
@@ -39,8 +42,12 @@ def _day_mask(spec: str) -> int:
     spec = re.sub(r"\s+", "", spec)
     if spec == "DAILY":
         return ALL_DAYS
-    if spec == "WEEKDAYS":
-        return 0b0011111
+    if spec in ("WEEKDAYS", "M-F"):
+        return WEEKDAYS
+    if spec.startswith("M-"):
+        spec = "MON-" + spec[2:]
+    if spec.endswith("-F"):
+        spec = spec[:-2] + "-FRI"
     if spec.startswith("WEEKEND"):
         return 0b1100000
     if "-" in spec:
@@ -96,55 +103,118 @@ def _range(a_tok: str, b_tok: str):
 
 
 def parse(text):
+    """Parse hours text. See parse_detail() for whether the reading was a guess."""
+    return parse_detail(text)[0]
+
+
+def parse_detail(text):
+    """Return (result, approximate).
+
+    approximate is True when the schedule involved a guess that could make a
+    rule look in force when it isn't, or the reverse: school days read as every
+    weekday, or a panel with no days borrowing them from another panel. Callers
+    must not show a green (legal) stretch based on an approximate schedule.
+    """
     if text is None:
-        return None
-    s = " ".join(str(text).upper().replace("–", "-").replace("—", "-").split())
+        return None, False
+    s = " ".join(str(text).upper().replace("–", "-").replace("—", "-").replace("&", " ").split())
     if not s or s in ("-",):
-        return None
+        return None, False
     if "OTHER TIME" in s:
-        return OTHER_TIMES
+        return OTHER_TIMES, False
     if "AT ALL TIMES" in s or s in ("ALL TIMES", "ANYTIME", "ANY TIME", "24 HOURS", "24HRS"):
-        return ALWAYS
+        return ALWAYS, False
     # 'null:7 AM-9 AM ,MON-FRI:...' is a blank day field, like ':7am-9am ,MON-FRI:...'.
     s = re.sub(r"(^|,)\s*NULL\s*:", r"\1:", s)
-    # School days are weekdays in term; treating them as every weekday errs on the safe side.
-    s = s.replace("SCHOOL DAYS", "MON-FRI")
+    approximate = False
+    if SCHOOL_RE.search(s):
+        # School days are weekdays in term. Every weekday over-covers (school holidays).
+        s = SCHOOL_RE.sub("MON-FRI", s)
+        approximate = True
     if "NULL" in s:
-        return None
+        return None, False
 
-    schedule = []
     segments = [seg.strip() for seg in s.split(",") if seg.strip()]
-    seg_days = []
-    seg_ranges = []
+    # Per segment: list of (ranges, mask or None) groups, plus any trailing day mask.
+    parsed = []
     for seg in segments:
-        # Word boundaries stop 'M' matching inside 'AM' or 'MIDNIGHT'.
-        days = [(m.start(), _day_mask(m.group(1))) for m in DAY_RE.finditer(seg)]
-        ranges = []
+        tokens = [(m.start(), "day", _day_mask(m.group(1))) for m in DAY_RE.finditer(seg)]
         for m in RANGE_RE.finditer(seg):
             r = _range(m.group(1), m.group(2))
             if r is None or r[0] == r[1]:
-                return None  # unreadable, or a zero-length range like '10 PM-10 PM'
-
-            ranges.append((m.start(), r))
-        seg_days.append(days)
-        seg_ranges.append(ranges)
-
-    if not any(seg_ranges):
-        return None
-
-    for i, ranges in enumerate(seg_ranges):
-        for pos, (start, end) in ranges:
-            days = seg_days[i]
-            mask = None
-            if days:
-                before = [m for p, m in days if p < pos]
-                mask = before[-1] if before else days[0][1]
+                return None, False  # unreadable, or a zero-length range like '10 PM-10 PM'
+            tokens.append((m.start(), "range", r))
+        tokens.sort(key=lambda t: t[0])
+        leftover = RANGE_RE.sub(" ", seg)
+        leftover = DAY_RE.sub(" ", leftover).replace("ALL DAY", " ")
+        leftover = re.sub(r"\b(TOW AWAY|CLEARWAY|REPEATER|ONLY)\b", " ", leftover)
+        if re.search(r"[A-Z]", leftover):
+            return None, False  # words we don't understand, e.g. a truncated '... M'
+        has_range = any(t[1] == "range" for t in tokens)
+        day_tokens = [t for t in tokens if t[1] == "day"]
+        if not has_range:
+            if "ALL DAY" in seg and day_tokens:
+                mask = 0
+                for t in day_tokens:
+                    mask |= t[2]
+                parsed.append(([(0, 1440)], mask, None))
+                continue
+            if day_tokens or re.search(r"\d", seg):
+                return None, False  # days with no readable times ('SUN:-')
+            continue
+        # Days listed together ('MON-FRI SUN', 'TUE THURS FRI') add up. A new day
+        # group starts after a range; trailing days ('7AM-9AM 4PM-7PM MON-FRI')
+        # apply to the ranges before them that had no days of their own.
+        groups, pending, current, unassigned = [], 0, None, []
+        for _, kind, value in tokens:
+            if kind == "day":
+                pending |= value
             else:
-                later = next((d for d in seg_days[i + 1:] if d), None)
-                earlier = next((d for d in reversed(seg_days[:i]) if d), None)
-                mask = (later or earlier or [(0, ALL_DAYS)])[0][1]
-            schedule.extend(_split(mask, start, end))
-    return normalise(schedule) or None
+                if pending:
+                    current, pending = pending, 0
+                if current is None:
+                    unassigned.append(value)
+                else:
+                    groups.append(([value], current))
+        if unassigned:
+            if pending:  # '7AM-9AM 4PM-7PM MON-FRI'
+                groups.append((unassigned, pending))
+                unassigned = []
+            elif groups:  # '7AM-9AM MON-FRI 4PM-6PM': the days after a range cover it
+                groups.insert(0, (unassigned, groups[0][1]))
+                unassigned = []
+        parsed.append((None, None, (groups, unassigned)))
+
+    if not parsed:
+        return None, False
+
+    def own_mask(entry):
+        ranges, mask, detail = entry
+        if detail is None:
+            return mask
+        groups, _ = detail
+        return groups[0][1] if groups else None
+
+    schedule = []
+    for i, (ranges, mask, detail) in enumerate(parsed):
+        if detail is None:
+            for a, b in ranges:
+                schedule.extend(_split(mask, a, b))
+            continue
+        groups, unassigned = detail
+        for rs, m in groups:
+            for a, b in rs:
+                schedule.extend(_split(m, a, b))
+        if unassigned:
+            later = next((own_mask(e) for e in parsed[i + 1:] if own_mask(e)), None)
+            earlier = next((own_mask(e) for e in reversed(parsed[:i]) if own_mask(e)), None)
+            borrowed = later or earlier
+            if borrowed:
+                approximate = True
+            for a, b in unassigned:
+                schedule.extend(_split(borrowed or ALL_DAYS, a, b))
+    result = normalise(schedule)
+    return (result, approximate) if result else (None, False)
 
 
 def _split(mask: int, start: int, end: int):
@@ -204,6 +274,40 @@ def complement(schedules):
     if cursor < 7 * 1440:
         gaps.append((cursor, 7 * 1440))
     return _from_weekly(gaps)
+
+
+def subtract(schedule, *others):
+    """Times in `schedule` not covered by any of `others`."""
+    keep = _to_weekly(schedule)
+    for other in others:
+        cut = _to_weekly(other)
+        out = []
+        for a, b in keep:
+            pieces = [(a, b)]
+            for c, d in cut:
+                nxt = []
+                for x, y in pieces:
+                    if d <= x or c >= y:
+                        nxt.append((x, y))
+                        continue
+                    if c > x:
+                        nxt.append((x, c))
+                    if d < y:
+                        nxt.append((d, y))
+                pieces = nxt
+            out.extend(pieces)
+        keep = out
+    return _from_weekly(sorted(keep))
+
+
+def overlaps(a, b) -> bool:
+    """Do two schedules share any time?"""
+    spans_b = _to_weekly(b)
+    return any(x < d and c < y for x, y in _to_weekly(a) for c, d in spans_b)
+
+
+def decode(text: str):
+    return [tuple(int(v) for v in part.split(",")) for part in text.split(";")] if text else []
 
 
 def encode(schedule) -> str:
