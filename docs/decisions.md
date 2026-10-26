@@ -196,3 +196,17 @@ A separate review checked every rule against the Queensland Road Rules Regulatio
 - **Treating amber as "don't stop" in the simple view** is deliberate: unclear means don't rely on it, and wrong red is the lesser error.
 - **Also:** tapping now picks the line nearest your finger (ties go to the stricter rule), and the finder has a "Near me" button.
 - **Change:** palette `P` and `applyMode()` in `web/index.html`.
+
+---
+
+## Camera list check · 27 Oct 2026
+
+### D038 · Camera sources and statuses
+- **Context:** a list of 23 "parking camera" streets was shared in the drivers group (an AI-generated summary citing a "Queensland Government camera list" and council announcements). Each street was checked against public sources before adding anything.
+- **Result:**
+  - 17 already on file, confirmed by council's 2025 releases or ABC News (Sept 2026).
+  - **Green Square Close (Fortitude Valley)** and **Latrobe Terrace (Paddington)**: WhichCar (8 Sep 2026) lists them among council's top five locations for infringement notices, in an article about the parking camera network, but doesn't call them camera sites outright. Added as **likely**. Green Square Close is in scope and now shows on the map.
+  - **O'Connell Terrace (Bowen Hills), Millennium Boulevard (Carindale), Buckland Road (Nundah), Petrie Terrace (Petrie Terrace)**: no public source found. Added as **unverified**: kept in the file for checking, not shown on the map. The list's "Queensland Government camera list" is most likely the state's speed and red-light camera list, which isn't parking cameras.
+- **New statuses:** `likely` (shown, labelled "Likely parking camera on this street", with its source in the popup) and `unverified` (not shown).
+- **Upgrade path:** a photo of the "parking enforcement camera in use" sign or the camera itself, with a location, makes any of these `confirmed` with an exact pin.
+- **Change:** `config/cameras.json`, `camera_layer()` in `pipeline/build.py`.

@@ -96,7 +96,7 @@ The arrow convention is checked on every build: consecutive matching signs on on
 
 ### Cameras
 
-[`config/cameras.json`](config/cameras.json) lists every publicly named fixed parking camera street. Council hasn't published its full list of 40+ sites; driver reports fill the gaps. Status is `announced` (street only), `reported` or `confirmed` (with coordinates).
+[`config/cameras.json`](config/cameras.json) lists every publicly named fixed parking camera street. Council hasn't published its full list of 40+ sites; driver reports fill the gaps. Status is `confirmed` (exact position, with coordinates), `announced` (council or news named the street), `likely` (a credible source points to it without saying "camera" outright), `reported` (a driver report, not yet checked) or `unverified` (claimed somewhere with no source: kept for checking, not shown). See decision D038.
 
 ## Running it
 

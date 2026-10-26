@@ -1,5 +1,5 @@
 {
-  "_comment": "Brisbane City Council fixed parking cameras. status: announced (council or news named the street; exact spot unknown), reported (a driver reported it, not yet checked), confirmed (position checked, e.g. photo of the camera or its 'parking enforcement camera in use' sign). Add lon/lat once a position is known. Entries outside the live scope are kept for later expansion.",
+  "_comment": "Brisbane City Council fixed parking cameras. status: confirmed (exact position checked, e.g. photo of the camera or its 'parking enforcement camera in use' sign; give lon/lat), announced (council or news named the street as a camera site; exact spot unknown), likely (a credible source points to it but doesn't say 'camera' outright), reported (a driver reported it, not yet checked), unverified (claimed somewhere, no source found: kept for checking, NOT shown on the map). Street names must match council's road data (e.g. OCONNELL TERRACE, no apostrophe). Entries outside the live scope are kept for later expansion.",
   "cameras": [
     {"id": "cam-mclachlan", "street": "MCLACHLAN STREET", "suburb": "FORTITUDE VALLEY", "status": "announced", "source": "Council media release, 2025 trial site", "lon": null, "lat": null},
     {"id": "cam-wickham-st", "street": "WICKHAM STREET", "suburb": "FORTITUDE VALLEY", "status": "announced", "source": "Council media release, 2025 trial site", "lon": null, "lat": null},
@@ -17,6 +17,12 @@
     {"id": "cam-metro", "street": "METRO STREET", "suburb": "MCDOWALL", "status": "announced", "source": "Council media release, 2025", "lon": null, "lat": null},
     {"id": "cam-russell", "street": "RUSSELL STREET", "suburb": "SOUTH BRISBANE", "status": "announced", "source": "Council media release, 2025", "lon": null, "lat": null},
     {"id": "cam-graham", "street": "GRAHAM STREET", "suburb": "SOUTH BRISBANE", "status": "announced", "source": "ABC News, 7 Sep 2026 (one of the two busiest sites)", "lon": null, "lat": null},
-    {"id": "cam-park-rd", "street": "PARK ROAD", "suburb": "MILTON", "status": "announced", "source": "ABC News, 7 Sep 2026 (one of the two busiest sites)", "lon": null, "lat": null}
+    {"id": "cam-park-rd", "street": "PARK ROAD", "suburb": "MILTON", "status": "announced", "source": "ABC News, 7 Sep 2026 (one of the two busiest sites)", "lon": null, "lat": null},
+    {"id": "cam-green-square-close", "street": "GREEN SQUARE CLOSE", "suburb": "FORTITUDE VALLEY", "status": "likely", "source": "WhichCar, 8 Sep 2026: named among council's top five locations for infringement notices, in an article on the parking camera network. Not explicitly called a camera site.", "lon": null, "lat": null},
+    {"id": "cam-latrobe-tce", "street": "LATROBE TERRACE", "suburb": "PADDINGTON", "status": "likely", "source": "WhichCar, 8 Sep 2026: named among council's top five locations for infringement notices, in an article on the parking camera network. Not explicitly called a camera site.", "lon": null, "lat": null},
+    {"id": "cam-oconnell-tce", "street": "OCONNELL TERRACE", "suburb": "BOWEN HILLS", "status": "unverified", "source": "Unsourced list shared in the drivers group, 27 Oct 2026. No public source found when checked.", "lon": null, "lat": null},
+    {"id": "cam-millennium-blvd", "street": "MILLENNIUM BOULEVARD", "suburb": "CARINDALE", "status": "unverified", "source": "Unsourced list shared in the drivers group, 27 Oct 2026. No public source found when checked.", "lon": null, "lat": null},
+    {"id": "cam-buckland-rd", "street": "BUCKLAND ROAD", "suburb": "NUNDAH", "status": "unverified", "source": "Unsourced list shared in the drivers group, 27 Oct 2026. No public source found when checked.", "lon": null, "lat": null},
+    {"id": "cam-petrie-tce", "street": "PETRIE TERRACE", "suburb": "PETRIE TERRACE", "status": "unverified", "source": "Unsourced list shared in the drivers group, 27 Oct 2026. No public source found when checked.", "lon": null, "lat": null}
   ]
 }

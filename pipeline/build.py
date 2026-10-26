@@ -186,7 +186,10 @@ def camera_layer(chains, suburbs_geojson, live_suburbs):
         if cam["suburb"] not in live_suburbs:
             continue
         status = cam["status"]
+        if status == "unverified":
+            continue  # claimed somewhere but no source found: tracked in config, not shown
         title = {"announced": "Council parking camera on this street",
+                 "likely": "Likely parking camera on this street",
                  "reported": "Parking camera reported by a driver",
                  "confirmed": "Parking camera"}[status]
         props = dict(label=title, street=cam["street"].title(), status=status, source=cam.get("source"),

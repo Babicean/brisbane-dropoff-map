@@ -1,5 +1,5 @@
 {
- "built_at": "2026-10-26T14:16:16+00:00",
+ "built_at": "2026-10-26T14:50:33+00:00",
  "fetched_at": "2026-10-26T13:41:33+00:00",
  "scope": "v2",
  "suburbs": [
@@ -23,7 +23,7 @@
   "review": 219,
   "clearways": 218,
   "points": 54,
-  "cameras": 56
+  "cameras": 58
  },
  "checks": {
   "arrow_convention": {
@@ -43,7 +43,7 @@
    "timed": 150,
    "unreadable": 1
   },
-  "cameras_on_map": 7,
+  "cameras_on_map": 8,
   "cameras_street_not_found": [],
   "features_hidden_by_corrections": 0,
   "green_vs_red": {
