@@ -1,0 +1,58 @@
+# Monthly: pull fresh council data, rebuild the map, and publish it if anything changed.
+# Safety: build.py refuses to write if the download looks broken (too few features, or the
+# sign-arrow check fails), so a bad council day never reaches the live map.
+name: Refresh council data
+
+on:
+  schedule:
+    - cron: "23 17 1 * *"  # 3:23 am Brisbane time on the 2nd of each month
+  workflow_dispatch:
+
+concurrency:
+  group: refresh
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      changed: ${{ steps.commit.outputs.changed }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Unit tests
+        run: python -m unittest discover tests
+      - name: Fetch council data
+        run: python pipeline/fetch.py
+      - name: Build map data
+        run: python pipeline/build.py
+      - name: Data summary
+        run: python pipeline/summarise.py --out docs/data-summary.md
+      - name: Commit if the map data changed
+        id: commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          # meta.json changes on every build (timestamp), so only the map layers decide.
+          if git diff --quiet -- web/data/*.geojson; then
+            echo "No change in council data."
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            git add web/data docs/data-summary.md
+            git commit -m "Monthly council data refresh"
+            git push
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+  deploy:
+    needs: refresh
+    if: needs.refresh.outputs.changed == 'true'
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    uses: ./.github/workflows/pages.yml

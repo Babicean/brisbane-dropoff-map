@@ -4,41 +4,59 @@ Context for Claude Code sessions in this repo. README.md has the full picture; t
 
 ## What this is
 
-A web map for Brisbane rideshare drivers: red where you can't stop, green where a 2-minute passenger drop-off is legal. Data comes from Brisbane City Council's ArcGIS open data layers, corrected by moderated driver reports.
+A web map for Brisbane rideshare drivers: red where you can't stop, green where a 2-minute passenger drop-off is legal, evaluated for the current Brisbane time. Data comes from Brisbane City Council's ArcGIS open data layers, corrected by moderated driver reports. Live at https://babicean.github.io/brisbane-dropoff-map/ (GitHub Pages from `web/`).
 
-## Scope
+## Working agreement
 
-- v1 suburbs: Brisbane City, Fortitude Valley, Newstead, Teneriffe, New Farm
-- v2 suburbs: Spring Hill, Herston
-- Keep the suburb list in one config file. Filtering uses the `SUBURB` field on the lines layer; layers without that field get clipped by area.
+- Brendon has delegated routine decisions: make the call, don't ask. **Record every judgement call in `docs/decisions.md`** (next number, what/why/how to change; mark real-world guesses as **Assumption**).
+- Wrong green is the worst error (a driver stops and gets fined); wrong red is next. When unsure, use review (amber), never green.
+
+## Commands
+
+```bash
+python pipeline/fetch.py                               # live scope -> data/raw/
+python pipeline/build.py                               # -> web/data/ (exits non-zero on a failed quality check)
+python pipeline/summarise.py --out docs/data-summary.md
+python -m unittest discover tests
+python -m http.server -d web 8000
+```
+
+Pushing `web/` changes to `main` deploys. The monthly refresh workflow does fetch → build → commit → deploy on its own.
+
+## Where things live
+
+- `config/scope.json` suburbs per version, `"live"` picks the published one. `config/layers.json` council layers. `config/cameras.json`, `config/corrections.json` moderated driver input.
+- `pipeline/rules.py` **every** red/green/review decision and fine amount. Don't scatter type checks elsewhere.
+- `pipeline/zones.py` signs → kerb zones (arrow convention, extents). `pipeline/hours.py` hours text → weekly schedules (`mask,start,end`, Monday = bit 0, minutes, Brisbane time). `pipeline/geo.py` local-metre geometry.
+- `web/index.html` the whole client (MapLibre 5.24.0 pinned, OpenFreeMap basemap, Photon search). `web/sw.js` network-first offline cache; bump `CACHE` if the shell changes.
 
 ## Conventions
 
-- Python 3.11+ for the pipeline. `fetch.py` is standard library only; keep it that way. Later steps can add `shapely` if needed; add `geopandas` only if it clearly earns its place.
-- Read and write files with `encoding="utf-8"`. The default on Windows is not UTF-8 and council text contains em dashes.
-- Scope and layer definitions live in `config/scope.json` and `config/layers.json`. Don't hard-code suburb names or layer URLs in scripts.
-- All GeoJSON the site loads is EPSG:4326. Request `outSR=4326` from ArcGIS rather than reprojecting locally.
-- ArcGIS returns max 2,000 records per query: always paginate with `resultOffset` until `exceededTransferLimit` is false.
-- `data/raw/` is gitignored. Only processed, scoped GeoJSON goes in `web/data/`.
-- The red/green classification lives in one mapping table in code (see the README table). Don't scatter type checks across files.
-- Unknown restriction types go to a `review` bucket, never silently to red or green.
+- Python 3.11+, standard library only for the pipeline. Read/write files with `encoding="utf-8"` (Windows default isn't UTF-8).
+- All GeoJSON the site loads is EPSG:4326; request `outSR=4326` from ArcGIS.
+- `data/raw/` is gitignored. Processed `web/data/` is committed so data changes show in diffs.
+- Unknown restriction types go to review, never silently to red or green.
+- Timed features carry `sched`; anything with unreadable hours is drawn always-on with "hours unclear".
 
-## Council data gotchas (found in M1)
+## Council data gotchas
 
-- Only draw lines with `ASSETLIFECYCLE == "In Service"`. `Disposal Complete` lines are gone from the road; `Preliminary` goes to review.
-- Normalise whitespace before matching text fields: values like `'Loading Zone '` have trailing spaces.
-- Yellow kerb lines are `PARKINGRESTRICTIONTYPE = "No Stopping"`. `Continuous Edge Line` is always white lane edge in scope; don't draw it.
-- Use the sign layer for loading zone types. The two loading zone point layers are stale extracts of it.
-- Clearway `OPERATIONAL_TIME` is free text in many formats; blank means all times.
+- Draw only `ASSETLIFECYCLE == "In Service"` lines. `Disposal Complete` lines are gone from the road.
+- Normalise whitespace before matching text (`'Loading Zone '`).
+- Yellow kerb lines are `PARKINGRESTRICTIONTYPE = "No Stopping"`; `Continuous Edge Line` is a white lane edge.
+- Sign `SIGNDIRECTION` is read from the road facing the kerb (see `zones.py`); `validate_convention` must stay ≥ 80% or the build stops.
+- Multi-panel signs share a pole: "ALL OTHER TIMES" = complement of the other panels on that pole.
+- Clearway `OPERATIONAL_TIME` is free text; blank means all times.
 - `BCC_Camera_Locations_view` is flood cameras, not parking cameras.
+- OpenStreetMap Overpass servers weren't reachable from the cloud build environment; council's `BCC_SDRN_roads` is used for centrelines instead.
 
 ## Rules for report data
 
-- Never store or publish number plates, names or infringement notice numbers.
-- Fine reports only feed the heatmap; no individual pins.
-- Nothing from a report reaches `web/data/` without moderation.
+- Never store or publish number plates, names or infringement notice numbers (the repo is public).
+- Nothing from a report reaches the map without moderation (a sign photo or two independent reports).
+- The website stores nothing; reports go to the drivers group via the share sheet.
 
 ## Don't
 
-- Don't present the map as authoritative. The footer must say signs on the street override it.
+- Don't present the map as authoritative. The bottom notice must say signs override it.
 - Don't add businesses or POIs to the basemap.
+- Don't commit `data/raw/`.

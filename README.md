@@ -1,212 +1,175 @@
 # Brisbane Drop-off Map
 
-A map for rideshare drivers showing where you can and can't stop to drop off a passenger in inner Brisbane. Built from Brisbane City Council open data, then checked and corrected by drivers.
+A map for rideshare drivers showing where you can and can't stop to drop off a passenger in inner Brisbane, right now. Built from Brisbane City Council open data, then checked and corrected by drivers.
 
-> **Status:** v0 preview live at **https://babicean.github.io/brisbane-dropoff-map/**. Painted lines, loading zones and clearways only; sign-only No Stopping zones are next.
+**Live map: https://babicean.github.io/brisbane-dropoff-map/** (beta)
+
+Every judgement call is recorded in [docs/decisions.md](docs/decisions.md) so it can be audited or reversed.
 
 ## Why this exists
 
 Brisbane City Council fines for stopping in the wrong place are expensive and increasingly automatic:
 
-- Stopping in a no stopping zone or on a yellow line is **2 penalty units** (about $333 at the 2025–26 rate; penalty units are indexed every 1 July).
+- Stopping in a no stopping zone or on a yellow line is **$345** (2 penalty units at $172.70, from 1 July 2026). A clearway is $518.
 - Council runs fixed parking cameras at 40+ sites, but **mobile enforcement vehicles issue far more fines** (roughly 100,000 of about 176,000 in 2026 so far, against about 8,000 from fixed cameras).
 
-So the useful question isn't "is there a camera here?" It's "is this bit of kerb legal, and if not, where's the nearest bit that is?" This map answers that before you arrive.
+So the useful question isn't "is there a camera here?" It's "is this bit of kerb legal right now, and if not, where's the nearest bit that is?"
 
-## What the map shows
+## What the map does
 
-| Layer | Meaning |
+| Feature | What drivers see |
 |---|---|
-| **Red** | Don't stop: no stopping lines, yellow continuous edge lines, signed no stopping zones, clearways (only during their operating hours), bus zones, taxi zones and ranks, mail zones, accessible bays |
-| **Green** | Legal for a quick passenger drop-off: passenger loading zones, standard loading zones, No Parking zones |
-| **Camera markers** | Council's fixed parking camera sites |
-| **Driver reports** | Moderated reports from the group: fine locations (heatmap), missing or wrong zones, camera sightings |
+| **Red** | Don't stop: yellow lines, No Stopping signs, bus and taxi zones, mail zones, accessible bays, commercial-only loading zones, works zones |
+| **Green** | A 2-minute passenger drop-off is legal: loading zones that allow passengers, passenger loading zones, No Parking zones |
+| **Purple dashed** | Clearways in force |
+| **Grey dashed** | A timed rule that isn't in force at the selected time |
+| **Amber** | The data doesn't say clearly: check the signs |
+| **Blue shading + camera pin** | A street with a council parking camera |
+| **Time chip** | Shows rules for now (Brisbane time); tap to check another day and time |
+| **Find a drop-off spot** | Search a venue or tap the map: the 3 nearest legal drop-off spots in force, with rough walking distance |
+| **Report** | Writes a message (camera, fine, wrong map, good spot) with the location for the drivers group |
+| **Tap any line** | Rule, street, hours, whether it's in force, fine amount, and whether it came from paint or signs |
 
-The base map shows streets and street names only. No businesses, reviews or points of interest.
+Also: follows the phone's dark mode, can be added to the home screen, and keeps working with the last-loaded data when there's no signal.
 
 ## Scope
 
-**v1:** Brisbane City, Fortitude Valley, Newstead, Teneriffe, New Farm.
+**Live (v2):** Brisbane City, Fortitude Valley, Newstead, Teneriffe, New Farm, Spring Hill, Herston.
 South Bank is excluded automatically, because it sits in the South Brisbane suburb rather than Brisbane City.
-
-**v2:** Spring Hill and Herston (the RBWH hospital precinct).
 
 **Later candidates:** South Brisbane (Graham Street is one of council's two busiest camera sites), Bowen Hills, Kangaroo Point, Milton.
 
-Scope is a list of suburb names in config. Each record in council's parking lines dataset carries a `SUBURB` field, so adding a suburb is a config change rather than new code.
+Scope is a list of suburb names in `config/scope.json`; `"live"` picks the version the published map uses. Adding a suburb is a config change.
 
 ## Road rules behind the colours (Queensland)
 
-| Restriction | Rule for a rideshare drop-off | Penalty |
+| Restriction | Rule for a rideshare drop-off | Fine |
 |---|---|---|
-| No Stopping sign or yellow line | Can't stop at all, even for a moment | 2 PU |
-| Clearway | Can't stop during signed hours (24/7 if no hours shown). Tow-away zone | 3 PU |
-| Bus zone | Can't stop | 2 PU |
-| Taxi zone / rank | Can't stop. Rideshare isn't a taxi | 2 PU |
-| Loading zone | Up to 2 minutes to drop off or pick up passengers, unless signed otherwise | 1 PU if longer |
-| Commercial vehicle loading zone | Permit holders only | 1 PU |
-| No Parking | Up to 2 minutes to drop off or pick up passengers, staying within 3 m of the car | 1 PU |
-| Accessible bay | Can't stop without a current permit | 4 PU |
+| No Stopping sign or yellow line | Can't stop at all, even for a moment | $345 |
+| Clearway | Can't stop during signed hours (all times if none shown). Tow-away | $518 |
+| Bus zone | Can't stop | $345 |
+| Taxi zone / rank | Can't stop. Rideshare isn't a taxi | $345 |
+| Loading zone | Up to 2 minutes to drop off or pick up passengers, unless signed otherwise | $172 if longer |
+| Commercial vehicle loading zone | Permit holders only | $172 |
+| No Parking | Up to 2 minutes for passengers, staying within 3 m of the car | $172 if longer |
+| Accessible bay | Can't stop without a permit | $690 |
+| Near an intersection | No stopping within 10 m (20 m at traffic lights) unless a sign permits it. **Not drawn yet** | $345 |
 
-Sources: Brisbane City Council parking fines page; *Transport Operations (Road Use Management—Road Rules) Regulation 2009* (Qld). This is a summary, not legal advice. **The signs on the street always override the map.** Council won't withdraw a fine because a sign was confusing.
+Sources: Brisbane City Council parking fines page (penalty unit $172.70 from 1 July 2026); *Transport Operations (Road Use Management—Road Rules) Regulation 2009* (Qld). This is a summary, not legal advice. **The signs on the street always override the map.**
 
-## Data sources
+## How it works
 
-All from Brisbane City Council's open data, served as ArcGIS feature layers:
+### Data sources
 
-`https://services2.arcgis.com/dEKgZETqwmDAh1rP/arcgis/rest/services/<LAYER>/FeatureServer/0`
+All from Brisbane City Council's open data, served as ArcGIS feature layers at
+`https://services2.arcgis.com/dEKgZETqwmDAh1rP/ArcGIS/rest/services/<LAYER>/FeatureServer/0`:
 
-| Layer | Geometry | Key fields | Last updated | Use |
-|---|---|---|---|---|
-| `Parking_Line_locations` | Line | `SUBURB`, `STREET`, `PARKINGRESTRICTIONTYPE`, `PAVEMENTMARKINGSUBTYPE`, `MARKINGCOLOUR`, `ASSETLIFECYCLE`, `PAVEMENTLINELENGTH` | 19 Oct 2026 | Main red/green layer |
-| `Parking_Sign_locations` | Point | `SUBURB`, `STREET`, `SIGNCATEGORY`, `PARKINGRESTRICTIONTYPE`, `SIGNDIRECTION`, `PARKINGRESTRICTIONDAYSANDTIMES` | 19 Oct 2026 (first surveyed 2020–21) | Sign-only zones, loading zone types, time-based rules |
-| `Parking_Clearways` | Line | `CATEGORY`, `OPERATIONAL_TIME` | 19 Oct 2026 | Time-aware red layer. No suburb field, so filtered by area |
-| `Disability_permit_parking` | Point | `TYPE`, `OPERATING_TIMES`, `BAYS`, `STREET` | 17 Feb 2026 | Red. No suburb field, so filtered by area |
-| `parking_two_minute_passenger_loading_zones` | Point | `Suburb`, `Street`, `Parking_Restriction_Type`, `ParkingRestrictionDaysandTimes` | 26 Aug 2024 | Cross-check only (see below) |
-| `parking_commercial_vehicle_loading_zones` | Point | same as above | 26 Aug 2024 | Cross-check only (see below) |
-| `suburb_boundaries` | Polygon | `SUBURB_NAME` | 20 Oct 2026 | Scope filter and clipping |
-
-Technical notes:
-- Layers support GeoJSON output and return at most **2,000 records per request**, so paginate with `resultOffset`.
-- Some layers are stored in **EPSG:28356** (GDA94 / MGA zone 56). Request `outSR=4326` so the output is lat/long for the web map.
-- Suburb names are upper case and match across layers (`BRISBANE CITY`, `FORTITUDE VALLEY`, …).
-- The same datasets are mirrored on [data.brisbane.qld.gov.au](https://data.brisbane.qld.gov.au).
-
-### What the first data pull showed (M1)
-
-Full tallies are in [docs/data-summary.md](docs/data-summary.md). The things that change the design:
-
-- **The red layer is mostly automatic.** About 52 km of in-service yellow No Stopping line across 1,816 segments in the v1 suburbs.
-- **Filter out removed lines.** 144 line records are `Disposal Complete`, including 74 No Stopping lines that are no longer on the road. Only `In Service` lines get drawn. The 5 `Preliminary` lines go to review.
-- **Yellow kerb lines are coded as No Stopping, not as edge lines.** Every `Continuous Edge Line` in scope is white, so none of them mean no stopping.
-- **Text fields have stray spaces** (`'Loading Zone '`, `'Taxi Rank '`). Normalise whitespace before matching.
-- **The sign data is better than expected.** It's maintained (last edited October 2026, every sign in service) and records arrow direction, so sign-only zones can be extended from each sign in the direction it points.
-- **Use signs, not the two loading zone point layers.** Those two layers appear to be extracts of the sign records (same type names, same 357 mixed passenger/commercial zones), last updated August 2024, and they overlap each other.
-- **Clearway hours are free text** in a dozen formats (`7AM-9AM  4PM-7PM MON-FRI`, `4PM-7PM M-F`, `AT ALL TIMES`). They need a parser. Blank means all times.
-- **Council's `BCC_Camera_Locations_view` layer is flood cameras on creeks, not parking cameras.** There's no public layer of parking camera sites.
-
-### How line types map to layers
-
-Match on `PARKINGRESTRICTIONTYPE` (whitespace-normalised) and only for `ASSETLIFECYCLE = In Service`.
-
-| `PARKINGRESTRICTIONTYPE` | Layer | Note |
+| Layer | Geometry | Used for |
 |---|---|---|
-| No Stopping | Red | All yellow. The main red layer |
-| Bus Bay | Red | |
-| Taxi Rank | Red | |
-| Mail Zone | Red | |
-| Accessible Parking | Red | Permit only |
-| Loading Zone | Green | Confirm the zone type from the nearest loading zone sign (see below) |
-| Special Purpose Zone | Review | Mostly CBD streets. Check what each one is reserved for |
-| Not Applicable + Unspecified Zone (yellow) | Review | 6 segments |
-| Not Applicable + Continuous Edge Line (white) | Not drawn | Lane edge, not a parking restriction |
-| Parking - Parallel / Angle, Motorcycle Parking | Not drawn in v1 | |
+| `Parking_Line_locations` | Line | Painted kerb markings: the most reliable red and green |
+| `Parking_Sign_locations` | Point | Every parking sign: type, arrow direction, hours |
+| `Parking_Clearways` | Line | Clearways and their hours |
+| `BCC_SDRN_roads` | Line | Road centrelines, to run sign rules along the kerb |
+| `suburb_boundaries` | Polygon | Scope filter |
 
-### Loading zone signs
+Layers return at most 2,000 records per request (`fetch.py` pages through them and checks each count against the server's own count). Some are stored in EPSG:28356; everything is requested as lat/long.
 
-| Sign `PARKINGRESTRICTIONTYPE` | Layer | Why |
-|---|---|---|
-| Loading Zone - Passenger 2 Min. Max, Commercial Vehicles 20 Min. Max | Green | Passenger drop-off allowed for 2 minutes |
-| Loading Zone Passengers 2 Min. Max | Green | Passenger loading zone |
-| Loading Zone | Green | Standard loading zone: 2 minutes for passengers unless signed otherwise |
-| Loading Zone Commercial Vehicle 20 Min. Max | Red | Commercial vehicles only. Check one of these signs on the street to confirm passengers aren't allowed |
+### Painted lines
 
-## Fixed camera sites in v1 scope
+Only `In Service` lines are drawn (`Disposal Complete` lines have been removed from the road). Text fields carry stray spaces, so they're normalised first. Yellow kerb lines are coded `No Stopping`; `Continuous Edge Line` is always a white lane edge and isn't drawn. A painted loading zone takes its type and hours from the nearest loading zone sign within 25 m. The full mapping is in [`pipeline/rules.py`](pipeline/rules.py).
 
-Seeded from council's 2025 announcements. The network has since grown to 40+ sites, so this list is incomplete. Drivers fill the gaps.
+### Signs into kerb zones
 
-| Street | Suburb | Status |
-|---|---|---|
-| McLachlan Street | Fortitude Valley | Announced (trial site) |
-| Wickham Street | Fortitude Valley | Announced (trial site) |
-| Symes Street | Fortitude Valley | Announced (trial site) |
-| Robertson Street | Fortitude Valley | Announced |
-| Festival Place | Newstead | Announced |
-| Moray Street | New Farm | Announced |
-| Charlotte Street | Brisbane City | Announced |
+Many restrictions have a sign but no paint. [`pipeline/zones.py`](pipeline/zones.py):
 
-Each site has a "parking enforcement camera in use" sign. Exact camera positions get confirmed by driver reports. Council doesn't publish these as open data: its only camera layer (`BCC_Camera_Locations_view`) is flood monitoring cameras.
+1. Joins council's road centreline pieces into blocks.
+2. Snaps each sign to its own street's centreline and notes which side it's on.
+3. Turns the arrow into a direction: you read a sign standing on the road facing the kerb, so "Right" runs with the centreline's drawing direction on its left-hand side, and against it on the right-hand side.
+4. Runs the rule from the sign to the next sign on that kerb, or to 6 m short of the corner (150 m at most).
 
-## Architecture
+The arrow convention is checked on every build: consecutive matching signs on one kerb should point at each other. Currently 91% do (1,799 vs 182); the build refuses to publish below 80%.
 
-```
-BCC ArcGIS layers ──► pipeline/fetch.py ──► data/raw/*.geojson (not committed)
-                                                │
-                                                ▼
-                         pipeline/build.py: filter to scope suburbs,
-                         classify red/green, clip clearways
-                                                │
-                                                ▼
-                      web/data/*.geojson ──► web/ (MapLibre GL, installable web app)
-                                                ▲                 │
-Driver reports (form ─► sheet) ─► moderation ───┘                 ▼
-                                                            GitHub Pages
-```
+### Hours
 
-- **Pipeline:** Python 3. Runs monthly, since council updates the lines data regularly.
-- **Map:** MapLibre GL JS with a stripped-down vector basemap (roads and labels only). Installable to a phone home screen.
-- **Reports:** Google Form feeding a Sheet to start. Move to a proper database only if volume justifies it.
-- **Hosting:** GitHub Pages.
+[`pipeline/hours.py`](pipeline/hours.py) reads council's many hours formats (`MON-FRI:7am-9am`, `:7-9:30am ,MON-FRI:3:30-7pm`, `7AM-9AM 4PM-7PM MON-FRI`, `DAILY:MIDNIGHT-5:30 AM` …) into weekly schedules. "ALL OTHER TIMES" becomes everything outside the other panels on the same pole. The map evaluates schedules in Brisbane time. Unit tests: `tests/test_hours.py`.
 
-### Repo layout
+### Cameras
 
-```
-config/          scope.json (suburbs per version), layers.json (council layers)
-pipeline/        fetch.py, summarise.py, build.py
-data/raw/        untouched council downloads (gitignored)
-docs/            data-summary.md (generated), rule references, research notes
-web/             the map page, deployed to GitHub Pages
-web/data/        processed GeoJSON the map loads (committed, so changes show up in diffs)
-.github/         Pages deploy workflow
-```
+[`config/cameras.json`](config/cameras.json) lists every publicly named fixed parking camera street. Council hasn't published its full list of 40+ sites; driver reports fill the gaps. Status is `announced` (street only), `reported` or `confirmed` (with coordinates).
 
-## Running the pipeline
+## Running it
 
-Needs Python 3.11+. No packages to install yet.
+Needs Python 3.11+. No packages to install.
 
 ```bash
-python pipeline/fetch.py                              # v1 suburbs into data/raw/
-python pipeline/fetch.py --scope v2                   # v1 + Spring Hill + Herston
+python pipeline/fetch.py                               # live scope into data/raw/
+python pipeline/build.py                               # classify into web/data/
 python pipeline/summarise.py --out docs/data-summary.md
-python pipeline/build.py                              # classify into web/data/
+python -m unittest discover tests                      # hours parser tests
+python -m http.server -d web 8000                      # preview at http://localhost:8000
 ```
 
-`fetch.py` checks every layer's feature count against the server's own count and exits with an error if they differ.
+`build.py` exits with an error (and writes nothing) if the arrow check fails or a layer comes back suspiciously small.
 
-To publish, commit the changed `web/` files and push to `main`. The GitHub Actions workflow in `.github/workflows/pages.yml` deploys `web/` to GitHub Pages, usually within a minute.
+### Publishing
 
-To preview locally first: `python -m http.server -d web 8000`, then open http://localhost:8000.
+- **Every push to `main` that touches `web/`** deploys to GitHub Pages (`.github/workflows/pages.yml`), usually within a minute.
+- **Monthly**, `.github/workflows/refresh.yml` fetches fresh council data, runs the tests and build, and commits and deploys if the map layers changed. It can also be run by hand from the Actions tab.
+- **Backup:** the first public version is kept on branch `backup/v0.1.0-preview`.
 
-## Driver reports
+## Driver reports and fixes
 
-What we collect: location, report type (camera / fine / zone missing or wrong / legal spot), date and time, and an optional photo of the sign.
+1. A driver taps **Report**, puts the red cross on the spot (or uses their location), picks a type, and sends the message to the group with a photo of the sign.
+2. Brendon checks it. A fix needs a photo of the sign or two independent reports.
+3. Fixes go into config, then rebuild and push:
+   - wrong red/green: add a `hide` entry to [`config/corrections.json`](config/corrections.json) (point + radius, optionally one layer)
+   - something drivers should know: add a `note` entry (shows as an amber pin)
+   - a camera: add or update it in `config/cameras.json` with coordinates and status
 
-What we never collect or publish: number plates, names, infringement notice numbers. Photos of fines must be cropped to the location details.
+```json
+{"corrections": [
+  {"action": "hide", "lon": 153.03512, "lat": -27.45631, "radius_m": 15, "layer": "green", "reason": "Sign changed to No Stopping, photo 3 Nov"},
+  {"action": "note", "lon": 153.03601, "lat": -27.45702, "text": "Mobile enforcement car parks here most Friday nights"}
+]}
+```
 
-How reports become map data:
-- Nothing goes live without moderation.
-- A zone correction needs either a photo of the sign or two independent reports.
-- Fine reports feed the heatmap only, never individual pins.
+Never put number plates, names or fine numbers in these files: the repo is public. Nothing is stored by the website itself.
+
+## Repo layout
+
+```
+config/          scope.json, layers.json, cameras.json, corrections.json
+pipeline/        fetch.py, build.py, summarise.py, rules.py, zones.py, hours.py, geo.py
+tests/           unit tests (python -m unittest discover tests)
+data/raw/        untouched council downloads (gitignored)
+docs/            decisions.md, data-summary.md (generated)
+web/             the map page, icons, manifest, service worker
+web/data/        processed GeoJSON the map loads (committed, so changes show up in diffs)
+.github/         deploy and monthly refresh workflows
+```
 
 ## Roadmap
 
-- [x] **M1 Data:** `fetch.py` pulls lines, signs, clearways, loading zones and accessible parking for the v1 suburbs; `summarise.py` reports what's in them
-- [x] **v0 preview:** `build.py` classifies in-service painted lines and loading zone signs into red, green and review; MapLibre page with a streets-only basemap, tap-for-details and locate-me, published on GitHub Pages
-- [ ] **M2 Signs:** extend sign-only No Stopping zones from each sign's arrow; parse clearway hours
-- [ ] **M3 Map:** clearways only red while active, search a venue and show the nearest green spot
-- [ ] **M4 Cameras:** seed council-announced sites, mark each as announced, reported or confirmed
-- [ ] **M5 Reports:** form, moderation flow, fine heatmap
-- [ ] **M6 Ship to the group:** install prompt, "signs override this map" footer, feedback link
-- [ ] **v2:** Spring Hill and Herston
+- [x] **M1 Data:** fetch and summarise council layers
+- [x] **v0 preview:** painted lines, loading zones, clearways; shareable page
+- [x] **M2 Signs:** sign-only zones from arrow directions, with a convention check
+- [x] **M3 Map:** time-aware rules, drop-off finder, fines in popups, night mode, home-screen app
+- [x] **M4 Cameras:** announced streets, structure for reported/confirmed positions
+- [x] **M5 Reports:** share-to-group reports; moderated corrections and notes
+- [x] **v2:** Spring Hill and Herston; monthly automatic refresh
+- [ ] **Corner rule:** draw the 10 m / 20 m no-stopping zones at intersections (needs council's traffic signal layer)
+- [ ] **Fine heatmap** once enough fine reports are collected
+- [ ] **Public holidays** for timed rules
+- [ ] **Custom address**, e.g. map.babicean.com
 
 ## Known gaps
 
-- No Stopping zones marked only by a sign (no paint) exist only as sign points. Where each zone starts and ends has to be inferred from the sign's arrow direction and the next sign along the kerb.
-- Part-time restrictions (for example, a loading zone that becomes parking after 6pm) are only on the signs, and the days/times field is often blank.
-- The camera network keeps growing, and there's no known live public list of every site.
-- Council's own notes say its parking data is indicative and locations change. Check signs.
+- The intersection rule (10 m from a corner, 20 m at lights) isn't drawn.
+- Sign zones are inferred: a missing or misplaced sign record means a missing or wrong zone. Painted lines are more reliable than sign zones; popups say which a line came from.
+- Driveways, bus stops without a zone sign, and anything else missing from council's data.
+- Council's own notes say its parking data is indicative. Check signs.
 
 ## Attribution
 
-Contains data © Brisbane City Council (open data, CC BY 4.0; licence to be confirmed per dataset).
+Contains data © Brisbane City Council (open data, CC BY 4.0). Basemap © OpenStreetMap contributors via OpenFreeMap. Search by Photon (komoot), OpenStreetMap data.
 Not affiliated with Brisbane City Council, Uber or DiDi.

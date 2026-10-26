@@ -1,4 +1,6 @@
-# Publishes the web/ folder to GitHub Pages on every push to main that touches it.
+# Publishes the web/ folder to GitHub Pages.
+# Runs on every push to main that touches web/, by hand from the Actions tab,
+# and when the monthly data refresh (refresh.yml) calls it after committing new data.
 name: Deploy map to GitHub Pages
 
 on:
@@ -6,6 +8,7 @@ on:
     branches: [main]
     paths: ["web/**", ".github/workflows/pages.yml"]
   workflow_dispatch:
+  workflow_call:
 
 permissions:
   contents: read
@@ -24,6 +27,8 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: main  # when called from refresh.yml, pick up the commit it just pushed
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
