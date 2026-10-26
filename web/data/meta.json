@@ -1,6 +1,6 @@
 {
- "built_at": "2026-10-26T13:37:06+00:00",
- "fetched_at": "2026-10-26T13:22:14+00:00",
+ "built_at": "2026-10-26T13:41:50+00:00",
+ "fetched_at": "2026-10-26T13:41:33+00:00",
  "scope": "v2",
  "suburbs": [
   "Brisbane City",
@@ -14,10 +14,7 @@
  "council_data_edited": {
   "lines": "2026-10-19",
   "signs": "2026-10-19",
-  "passenger_loading": "2024-08-26",
-  "commercial_loading": "2024-08-26",
   "clearways": "2026-10-19",
-  "disability_parking": "2026-02-17",
   "roads": "2022-09-04"
  },
  "counts": {

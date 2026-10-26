@@ -17,7 +17,11 @@ RAW = ROOT / "data" / "raw"
 
 
 def props(name: str) -> list[dict]:
+    """Properties of a layer from the last fetch (layers not in the manifest are ignored)."""
+    manifest = json.loads((RAW / "manifest.json").read_text(encoding="utf-8"))
     path = RAW / f"{name}.geojson"
+    if name not in manifest["layers"]:
+        return []
     if not path.exists():
         return []
     data = json.loads(path.read_text(encoding="utf-8"))
@@ -88,12 +92,6 @@ def main() -> None:
         md += ["Top 30 restriction types:", ""]
         md += [counter_table(Counter(clean(p["PARKINGRESTRICTIONTYPE"]) for p in signs), "Restriction type", 30), ""]
         md += [counter_table(Counter(clean(p["SIGNDIRECTION"]) for p in signs), "Arrow direction")]
-
-    for name, field in (("passenger_loading", "Parking_Restriction_Type"), ("commercial_loading", "Parking_Restriction_Type")):
-        rows = props(name)
-        if rows:
-            md += ["", f"## {name.replace('_', ' ').capitalize()} (points)", ""]
-            md += [counter_table(Counter(clean(p[field]) for p in rows), "Restriction type")]
 
     clearways = props("clearways")
     if clearways:

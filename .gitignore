@@ -22,3 +22,6 @@ node_modules/
 .DS_Store
 Thumbs.db
 desktop.ini
+
+# Smoke test screenshots
+out/

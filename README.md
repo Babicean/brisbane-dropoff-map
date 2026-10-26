@@ -167,6 +167,7 @@ web/data/        processed GeoJSON the map loads (committed, so changes show up 
 - The intersection rule (10 m from a corner, 20 m at lights) isn't drawn.
 - Sign zones are inferred: a missing or misplaced sign record means a missing or wrong zone. Painted lines are more reliable than sign zones; popups say which a line came from.
 - Driveways, bus stops without a zone sign, and anything else missing from council's data.
+- Roads council doesn't manage are blank: hospital campuses (the internal roads at RBWH in Herston), private car parks and state-controlled roads' own signage where council has no record.
 - Council's own notes say its parking data is indicative. Check signs.
 
 ## Attribution
