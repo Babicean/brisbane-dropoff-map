@@ -2,7 +2,7 @@
 
 A map for rideshare drivers showing where you can and can't stop to drop off a passenger in inner Brisbane. Built from Brisbane City Council open data, then checked and corrected by drivers.
 
-> **Status:** v1 in planning. Nothing is live yet.
+> **Status:** v0 preview live at **https://babicean.github.io/brisbane-dropoff-map/**. Painted lines, loading zones and clearways only; sign-only No Stopping zones are next.
 
 ## Why this exists
 
@@ -152,11 +152,12 @@ Driver reports (form ─► sheet) ─► moderation ───┘               
 
 ```
 config/          scope.json (suburbs per version), layers.json (council layers)
-pipeline/        fetch.py, summarise.py; build.py next
+pipeline/        fetch.py, summarise.py, build.py
 data/raw/        untouched council downloads (gitignored)
 docs/            data-summary.md (generated), rule references, research notes
-web/             the map (M3)
-web/data/        processed GeoJSON the map loads (M2)
+web/             the map page, deployed to GitHub Pages
+web/data/        processed GeoJSON the map loads (committed, so changes show up in diffs)
+.github/         Pages deploy workflow
 ```
 
 ## Running the pipeline
@@ -167,9 +168,14 @@ Needs Python 3.11+. No packages to install yet.
 python pipeline/fetch.py                              # v1 suburbs into data/raw/
 python pipeline/fetch.py --scope v2                   # v1 + Spring Hill + Herston
 python pipeline/summarise.py --out docs/data-summary.md
+python pipeline/build.py                              # classify into web/data/
 ```
 
 `fetch.py` checks every layer's feature count against the server's own count and exits with an error if they differ.
+
+To publish, commit the changed `web/` files and push to `main`. The GitHub Actions workflow in `.github/workflows/pages.yml` deploys `web/` to GitHub Pages, usually within a minute.
+
+To preview locally first: `python -m http.server -d web 8000`, then open http://localhost:8000.
 
 ## Driver reports
 
@@ -185,8 +191,9 @@ How reports become map data:
 ## Roadmap
 
 - [x] **M1 Data:** `fetch.py` pulls lines, signs, clearways, loading zones and accessible parking for the v1 suburbs; `summarise.py` reports what's in them
-- [ ] **M2 Classify:** `build.py` outputs `red.geojson`, `green.geojson`, `review.geojson` and `clearways.geojson`, with clearway hours parsed and sign-only zones extended from their arrows
-- [ ] **M3 Map:** MapLibre page with the street-names-only basemap, red/green layers, and clearways that follow the current time
+- [x] **v0 preview:** `build.py` classifies in-service painted lines and loading zone signs into red, green and review; MapLibre page with a streets-only basemap, tap-for-details and locate-me, published on GitHub Pages
+- [ ] **M2 Signs:** extend sign-only No Stopping zones from each sign's arrow; parse clearway hours
+- [ ] **M3 Map:** clearways only red while active, search a venue and show the nearest green spot
 - [ ] **M4 Cameras:** seed council-announced sites, mark each as announced, reported or confirmed
 - [ ] **M5 Reports:** form, moderation flow, fine heatmap
 - [ ] **M6 Ship to the group:** install prompt, "signs override this map" footer, feedback link

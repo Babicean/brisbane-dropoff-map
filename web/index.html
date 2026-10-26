@@ -1,0 +1,248 @@
+<!doctype html>
+<html lang="en-AU">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Brisbane Drop-off Map</title>
+<meta name="description" content="Where rideshare drivers can and can't stop for drop-offs in inner Brisbane. Built from Brisbane City Council open data.">
+<meta name="theme-color" content="#14171c">
+<link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.css">
+<style>
+  :root {
+    --red: #d7263d;
+    --green: #12985a;
+    --amber: #e39b0b;
+    --clearway: #8e2bd6;
+    --ink: #14171c;
+    --muted: #5b6370;
+    --panel: #ffffff;
+    --line: #e3e6ea;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; font: 15px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; color: var(--ink); background: #f4f5f7; }
+  #map { position: fixed; inset: 0; }
+
+  .bar {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 2;
+    display: flex; align-items: center; gap: 10px;
+    padding: calc(10px + env(safe-area-inset-top)) 12px 10px;
+    background: var(--ink); color: #fff;
+  }
+  .bar h1 { font-size: 16px; margin: 0; font-weight: 650; letter-spacing: -0.01em; }
+  .bar .tag { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; background: var(--amber); color: var(--ink); padding: 2px 6px; border-radius: 4px; }
+  .bar button { margin-left: auto; background: transparent; color: #fff; border: 1px solid rgba(255,255,255,0.35); border-radius: 8px; padding: 6px 12px; font: inherit; font-size: 14px; cursor: pointer; }
+
+  .legend {
+    position: fixed; left: 10px; bottom: calc(42px + env(safe-area-inset-bottom)); z-index: 2;
+    background: var(--panel); border-radius: 12px; box-shadow: 0 4px 18px rgba(0,0,0,0.16);
+    padding: 8px 10px; font-size: 12.5px; max-width: 230px; border: 0; text-align: left; font-family: inherit; color: inherit; cursor: pointer;
+  }
+  .legend .row { display: flex; align-items: center; gap: 8px; padding: 2px 0; }
+  .legend .head { font-weight: 650; display: flex; justify-content: space-between; gap: 12px; padding-bottom: 2px; }
+  .legend .head span { color: var(--muted); font-weight: 500; }
+  .legend.collapsed .row { display: none; }
+  .legend.collapsed .head { padding: 0; }
+  .swatch { width: 22px; height: 5px; border-radius: 3px; flex: none; }
+  .swatch.dot { width: 12px; height: 12px; border-radius: 50%; margin: 0 5px; border: 2px solid #fff; box-shadow: 0 0 0 1px var(--green); }
+  .swatch.dash { background: repeating-linear-gradient(90deg, var(--clearway) 0 6px, transparent 6px 10px); }
+
+  .notice {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 2;
+    padding: 8px 12px calc(8px + env(safe-area-inset-bottom));
+    background: var(--ink); color: #fff; font-size: 12.5px; text-align: center;
+  }
+
+  .sheet {
+    position: fixed; inset: 0; z-index: 5; display: none;
+    background: rgba(20,23,28,0.45);
+  }
+  .sheet.open { display: block; }
+  .sheet .card {
+    position: absolute; left: 0; right: 0; bottom: 0; max-height: 85vh; overflow: auto;
+    background: var(--panel); border-radius: 16px 16px 0 0;
+    padding: 18px 18px calc(24px + env(safe-area-inset-bottom));
+  }
+  @media (min-width: 720px) {
+    .sheet .card { left: auto; right: 16px; top: 70px; bottom: auto; width: 400px; border-radius: 16px; }
+  }
+  .card h2 { font-size: 18px; margin: 0 0 6px; }
+  .card h3 { font-size: 14px; margin: 18px 0 6px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); }
+  .card p, .card li { color: #2b3038; }
+  .card ul { padding-left: 18px; margin: 6px 0; }
+  .card .close { float: right; border: 0; background: #eef0f3; border-radius: 8px; padding: 6px 12px; font: inherit; cursor: pointer; }
+  .small { font-size: 12.5px; color: var(--muted); }
+
+  .maplibregl-popup-content { border-radius: 10px; padding: 10px 12px; font-size: 14px; max-width: 260px; }
+  .pop-label { font-weight: 650; }
+  .pop-street { color: var(--muted); }
+  .pop-hours { margin-top: 4px; font-size: 13px; }
+  .maplibregl-ctrl-top-right { top: calc(52px + env(safe-area-inset-top)); }
+  .maplibregl-ctrl-bottom-right, .maplibregl-ctrl-bottom-left { bottom: calc(34px + env(safe-area-inset-bottom)); }
+</style>
+</head>
+<body>
+<div id="map" role="region" aria-label="Map of stopping restrictions"></div>
+
+<header class="bar">
+  <h1>Brisbane Drop-off Map</h1>
+  <span class="tag">Preview</span>
+  <button id="info-btn" type="button" aria-haspopup="dialog">Info</button>
+</header>
+
+<button class="legend" id="legend" type="button" aria-expanded="true" aria-label="Map key, tap to hide or show">
+  <div class="head">Key <span id="legend-toggle">hide</span></div>
+  <div class="row"><span class="swatch" style="background:var(--red)"></span>Don't stop</div>
+  <div class="row"><span class="swatch" style="background:var(--green)"></span>Loading zone: 2 min drop-off</div>
+  <div class="row"><span class="swatch dot" style="background:var(--green)"></span>Loading zone sign, no paint</div>
+  <div class="row"><span class="swatch dash"></span>Clearway: check its hours</div>
+  <div class="row"><span class="swatch" style="background:var(--amber)"></span>Unclear: check the signs</div>
+</button>
+
+<div class="notice">Signs on the street always override this map.</div>
+
+<div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-title">
+  <div class="card">
+    <button class="close" id="close-btn" type="button">Close</button>
+    <h2 id="sheet-title">About this map</h2>
+    <p>Where rideshare drivers can and can't stop to drop off a passenger in inner Brisbane. Built from Brisbane City Council's open parking data. Tap any line for details.</p>
+
+    <h3>Covers</h3>
+    <p id="suburbs">Brisbane City, Fortitude Valley, Newstead, Teneriffe, New Farm</p>
+
+    <h3>Not shown yet</h3>
+    <ul>
+      <li>No Stopping zones marked only by a sign, with no yellow paint.</li>
+      <li>Clearways are drawn at all times. Tap one to see its hours.</li>
+      <li>Exact parking camera positions.</li>
+    </ul>
+
+    <h3>Council parking camera streets</h3>
+    <p class="small">Announced by council in 2025. The network is now 40+ sites, so this list is incomplete.</p>
+    <ul>
+      <li>McLachlan, Wickham, Symes and Robertson Streets, Fortitude Valley</li>
+      <li>Festival Place, Newstead</li>
+      <li>Moray Street, New Farm</li>
+      <li>Charlotte Street, Brisbane City</li>
+    </ul>
+
+    <h3>Quick rules</h3>
+    <ul>
+      <li><b>Yellow line or No Stopping sign:</b> don't stop at all, even for a second.</li>
+      <li><b>Loading zone:</b> up to 2 minutes to drop off or pick up passengers, unless the sign says commercial vehicles only.</li>
+      <li><b>No Parking:</b> up to 2 minutes for passengers if you stay within 3 m of the car.</li>
+      <li><b>Bus and taxi zones:</b> never. Rideshare isn't a taxi.</li>
+    </ul>
+
+    <h3>Data</h3>
+    <p class="small" id="data-dates">Loading…</p>
+    <p class="small">Spotted a mistake? Post it in the drivers group with a photo of the sign.</p>
+    <p class="small">Not legal advice. Not affiliated with Brisbane City Council, Uber or DiDi. Contains data © Brisbane City Council. Map data © OpenStreetMap contributors.</p>
+  </div>
+</div>
+
+<script src="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.js"></script>
+<script>
+(function () {
+  const COLORS = { red: "#d7263d", green: "#12985a", amber: "#e39b0b", clearway: "#8e2bd6" };
+  const LINE_WIDTH = ["interpolate", ["linear"], ["zoom"], 13, 1.5, 16, 4, 19, 9];
+
+  const map = new maplibregl.Map({
+    container: "map",
+    style: "https://tiles.openfreemap.org/styles/positron",
+    center: [153.031, -27.462],
+    zoom: 14,
+    minZoom: 12,
+    maxBounds: [[152.95, -27.53], [153.12, -27.39]],
+    attributionControl: { compact: true, customAttribution: "Parking data © Brisbane City Council (CC BY 4.0)" }
+  });
+
+  map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-right");
+  map.addControl(new maplibregl.GeolocateControl({
+    positionOptions: { enableHighAccuracy: true },
+    trackUserLocation: true
+  }), "top-right");
+
+  const LAYERS = [
+    { id: "clearways", file: "data/clearways.geojson", type: "line",
+      paint: { "line-color": COLORS.clearway, "line-width": LINE_WIDTH, "line-dasharray": [2, 1.5], "line-opacity": 0.85 } },
+    { id: "review", file: "data/review.geojson", type: "line",
+      paint: { "line-color": COLORS.amber, "line-width": LINE_WIDTH } },
+    { id: "red", file: "data/red.geojson", type: "line",
+      paint: { "line-color": COLORS.red, "line-width": LINE_WIDTH } },
+    { id: "green", file: "data/green.geojson", type: "line",
+      paint: { "line-color": COLORS.green, "line-width": LINE_WIDTH } },
+    { id: "green-signs", file: "data/green_signs.geojson", type: "circle",
+      paint: { "circle-color": COLORS.green, "circle-radius": ["interpolate", ["linear"], ["zoom"], 13, 3, 17, 7],
+               "circle-stroke-color": "#ffffff", "circle-stroke-width": 2 } }
+  ];
+
+  map.on("load", () => {
+    // Keep the basemap to streets and names: drop any point-of-interest layers.
+    for (const layer of map.getStyle().layers) {
+      if (["poi", "aerodrome_label"].includes(layer["source-layer"])) map.removeLayer(layer.id);
+    }
+    for (const l of LAYERS) {
+      map.addSource(l.id, { type: "geojson", data: l.file });
+      map.addLayer({ id: l.id, type: l.type, source: l.id, paint: l.paint,
+                     layout: l.type === "line" ? { "line-cap": "round", "line-join": "round" } : {} });
+    }
+  });
+
+  // Tap anywhere near a line: lines are thin, so search a small box around the tap.
+  const interactive = LAYERS.map(l => l.id);
+  map.on("click", (e) => {
+    const r = 12;
+    const box = [[e.point.x - r, e.point.y - r], [e.point.x + r, e.point.y + r]];
+    const hits = map.queryRenderedFeatures(box, { layers: interactive.filter(id => map.getLayer(id)) });
+    if (!hits.length) return;
+    const p = hits[0].properties;
+    const el = document.createElement("div");
+    const add = (cls, text) => { if (!text) return; const d = document.createElement("div"); d.className = cls; d.textContent = text; el.appendChild(d); };
+    add("pop-label", p.label);
+    add("pop-street", p.street);
+    add("pop-hours", p.hours ? "Hours: " + p.hours : "");
+    add("pop-hours", p.arrow ? "Sign arrow: " + p.arrow : "");
+    new maplibregl.Popup({ closeButton: true, maxWidth: "260px" }).setLngLat(e.lngLat).setDOMContent(el).addTo(map);
+  });
+  map.on("mousemove", (e) => {
+    const r = 6;
+    const hits = map.queryRenderedFeatures([[e.point.x - r, e.point.y - r], [e.point.x + r, e.point.y + r]],
+      { layers: interactive.filter(id => map.getLayer(id)) });
+    map.getCanvas().style.cursor = hits.length ? "pointer" : "";
+  });
+
+  // Start with the attribution collapsed so it doesn't sit under the key.
+  map.once("idle", () => {
+    document.querySelector(".maplibregl-ctrl-attrib")?.classList.remove("maplibregl-compact-show");
+  });
+
+  // Key: tap to collapse, so it doesn't cover the map while driving around.
+  const legend = document.getElementById("legend");
+  legend.addEventListener("click", () => {
+    const collapsed = legend.classList.toggle("collapsed");
+    legend.setAttribute("aria-expanded", String(!collapsed));
+    document.getElementById("legend-toggle").textContent = collapsed ? "show" : "hide";
+  });
+
+  // Info sheet
+  const sheet = document.getElementById("sheet");
+  const open = () => sheet.classList.add("open");
+  const close = () => sheet.classList.remove("open");
+  document.getElementById("info-btn").addEventListener("click", open);
+  document.getElementById("close-btn").addEventListener("click", close);
+  sheet.addEventListener("click", (e) => { if (e.target === sheet) close(); });
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape") close(); });
+
+  // Data dates for the info sheet
+  fetch("data/meta.json").then(r => r.json()).then(meta => {
+    const fmt = (iso) => iso ? new Date(iso).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" }) : "unknown";
+    document.getElementById("suburbs").textContent = meta.suburbs.join(", ");
+    document.getElementById("data-dates").textContent =
+      `Council line data last updated ${fmt(meta.council_data_edited.lines)}. Map built ${fmt(meta.built_at)}.`;
+  }).catch(() => {
+    document.getElementById("data-dates").textContent = "Data dates unavailable.";
+  });
+})();
+</script>
+</body>
+</html>
